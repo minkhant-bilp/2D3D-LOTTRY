@@ -8,6 +8,9 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+# Keystore files
+*.keystore
+credentials.json
 
 # Native
 .kotlin/

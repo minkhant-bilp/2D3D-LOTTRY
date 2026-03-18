@@ -1,7 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+  if (isTablet) return tablet;
+  if (isSmall) return small;
+  return medium;
+};
 
 const THEME = {
   bg: '#050A1F',
@@ -59,7 +69,7 @@ const DayCard = ({ item }: { item: HistoryItemType }) => {
   return (
     <View style={styles.card}>
       <View style={styles.dateHeader}>
-        <Ionicons name="calendar-outline" size={16} color={THEME.neon} />
+        <Ionicons name="calendar-outline" size={s(14, 16, 20)} color={THEME.neon} />
         <Text style={styles.dateText}>{item.date}</Text>
       </View>
 
@@ -83,7 +93,7 @@ export default function LotteryHistory() {
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={THEME.text} />
+          <Ionicons name="chevron-back" size={s(20, 24, 30)} color={THEME.text} />
         </Pressable>
 
         <Text style={styles.headerTitle}>ထွက်ဂဏန်းမှတ်တမ်း</Text>
@@ -113,17 +123,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
+    paddingHorizontal: s(15, 20, 30),
+    paddingTop: s(40, 50, 70),
+    paddingBottom: s(15, 20, 30),
     backgroundColor: THEME.bg,
     borderBottomWidth: 1,
     borderBottomColor: THEME.border,
   },
   backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: s(38, 44, 54),
+    height: s(38, 44, 54),
+    borderRadius: s(12, 14, 18),
     backgroundColor: THEME.card,
     borderWidth: 1,
     borderColor: THEME.border,
@@ -132,66 +142,66 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: THEME.text,
-    fontSize: 20,
+    fontSize: s(18, 20, 26),
     fontWeight: 'bold',
   },
   placeholderBtn: {
-    width: 44,
+    width: s(38, 44, 54),
   },
   listContainer: {
     flex: 1,
   },
   listContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: s(15, 20, 30),
+    paddingBottom: s(30, 40, 60),
   },
   card: {
     backgroundColor: THEME.card,
-    borderRadius: 20,
+    borderRadius: s(16, 20, 24),
     borderWidth: 1,
     borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 16,
+    padding: s(14, 16, 24),
+    marginBottom: s(14, 16, 24),
   },
   dateHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 8,
+    marginBottom: s(12, 16, 20),
+    gap: s(6, 8, 12),
   },
   dateText: {
     color: THEME.text,
-    fontSize: 15,
+    fontSize: s(14, 15, 18),
     fontWeight: 'bold',
   },
   resultsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: s(8, 10, 16),
   },
   resultBox: {
     flex: 1,
     backgroundColor: THEME.boxBg,
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderRadius: s(12, 14, 18),
+    paddingVertical: s(12, 14, 20),
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.02)',
   },
   periodText: {
     color: THEME.muted,
-    fontSize: 12,
+    fontSize: s(11, 12, 14),
     fontWeight: '600',
-    marginBottom: 2,
+    marginBottom: s(2, 2, 4),
   },
   timeText: {
     color: THEME.muted,
-    fontSize: 10,
-    marginBottom: 10,
+    fontSize: s(9, 10, 12),
+    marginBottom: s(8, 10, 14),
   },
   numberText: {
     color: THEME.neon,
-    fontSize: 32,
+    fontSize: s(26, 32, 42),
     fontWeight: '900',
   },
 });

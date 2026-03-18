@@ -1,8 +1,19 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useRouter } from 'expo-router';
 import React from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 export const GLOBAL_THEME = {
     screenBg: '#050A1F',
@@ -15,12 +26,13 @@ export const GLOBAL_THEME = {
 };
 
 export function HomeHeader() {
+    const router = useRouter()
     const insets = useSafeAreaInsets();
 
     return (
         <View style={[
             styles.headerContainer,
-            { paddingTop: insets.top > 0 ? insets.top + 5 : 20 }
+            { paddingTop: insets.top > 0 ? insets.top + 5 : s(15, 20, 30) }
         ]}>
 
             <Pressable style={styles.leftSection} onPress={() => console.log('Profile Pressed')}>
@@ -32,7 +44,7 @@ export function HomeHeader() {
                 </View>
                 <View style={styles.userInfo}>
                     <Text style={styles.greetingText}>မင်္ဂလာပါ,</Text>
-                    <Text style={styles.userName}>Aung Kyaw <MaterialCommunityIcons name="check-decagram" size={14} color={GLOBAL_THEME.gold} /></Text>
+                    <Text style={styles.userName}>Aung Kyaw <MaterialCommunityIcons name="check-decagram" size={s(12, 14, 18)} color={GLOBAL_THEME.gold} /></Text>
                 </View>
             </Pressable>
 
@@ -40,10 +52,10 @@ export function HomeHeader() {
 
                 <Pressable
                     style={({ pressed }) => [styles.iconBtn, pressed && styles.iconPressed]}
-                    onPress={() => console.log('Noti Pressed')}
+                    onPress={() => router.navigate("/wallet-profile/ad")}
                 >
                     <View>
-                        <Ionicons name="notifications-outline" size={26} color={GLOBAL_THEME.textPrimary} />
+                        <Ionicons name="notifications-outline" size={s(22, 26, 32)} color={GLOBAL_THEME.textPrimary} />
                         <View style={styles.notiBadge} />
                     </View>
                 </Pressable>
@@ -60,11 +72,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingBottom: 15,
+        paddingHorizontal: s(12, 16, 24),
+        paddingBottom: s(12, 15, 20),
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-        marginTop: -10,
+        marginTop: s(-8, -10, -14),
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
@@ -82,32 +94,32 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     profileRing: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        borderWidth: 2,
+        width: s(38, 44, 54),
+        height: s(38, 44, 54),
+        borderRadius: s(19, 22, 27),
+        borderWidth: s(1.5, 2, 3),
         borderColor: GLOBAL_THEME.neonGreen,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 10,
+        marginRight: s(8, 10, 14),
     },
     profileImage: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: s(30, 36, 46),
+        height: s(30, 36, 46),
+        borderRadius: s(15, 18, 23),
     },
     userInfo: {
         justifyContent: 'center',
     },
     greetingText: {
         color: GLOBAL_THEME.textSecondary,
-        fontSize: 12,
+        fontSize: s(10, 12, 15),
         fontWeight: '500',
-        marginBottom: 2,
+        marginBottom: s(1, 2, 4),
     },
     userName: {
         color: GLOBAL_THEME.textPrimary,
-        fontSize: 15,
+        fontSize: s(13, 15, 18),
         fontWeight: 'bold',
     },
 
@@ -116,21 +128,21 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     iconBtn: {
-        padding: 20,
-        marginRight: -30
+        padding: s(15, 20, 30),
+        marginRight: s(-20, -30, -40)
     },
     iconPressed: {
         opacity: 0.6,
     },
     notiBadge: {
         position: 'absolute',
-        top: 2,
-        right: 2,
-        width: 10,
-        height: 10,
-        borderRadius: 5,
+        top: s(1.5, 2, 3),
+        right: s(1.5, 2, 3),
+        width: s(8, 10, 12),
+        height: s(8, 10, 12),
+        borderRadius: s(4, 5, 6),
         backgroundColor: GLOBAL_THEME.notiRed,
-        borderWidth: 1.5,
+        borderWidth: s(1, 1.5, 2),
         borderColor: GLOBAL_THEME.headerBg,
     },
 });

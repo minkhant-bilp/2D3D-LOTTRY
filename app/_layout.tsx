@@ -33,6 +33,8 @@ function RootNavigator() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           {/* <Stack.Protected guard={!!session}> */}
+          <Stack.Screen name="(setup)" options={{ headerShown: false }} />
+
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name='wallet-profile' options={{ headerShown: false }} />
           <Stack.Screen name='gambling' options={{ headerShown: false }} />

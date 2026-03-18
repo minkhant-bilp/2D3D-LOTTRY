@@ -1,11 +1,21 @@
 import React from 'react';
-import { Pressable, StyleSheet, } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -33,7 +43,7 @@ export function TabBarItem({ isFocused, onPress, onLongPress, label, icon, color
         return {
             transform: [
                 { scale: withSpring(isFocused ? 1.25 : 1, { damping: 12, stiffness: 150 }) },
-                { translateY: withSpring(isFocused ? -6 : 0, { damping: 12, stiffness: 150 }) },
+                { translateY: withSpring(isFocused ? s(-4, -6, -8) : 0, { damping: 12, stiffness: 150 }) },
                 { scale: pressedScale.value },
             ],
         };
@@ -43,7 +53,7 @@ export function TabBarItem({ isFocused, onPress, onLongPress, label, icon, color
         return {
             opacity: withTiming(isFocused ? 1 : 0.5, { duration: 200 }),
             transform: [
-                { translateY: withTiming(isFocused ? 2 : 10, { duration: 200 }) },
+                { translateY: withTiming(isFocused ? s(1, 2, 3) : s(8, 10, 14), { duration: 200 }) },
                 { scale: pressedScale.value }
             ],
         };
@@ -79,8 +89,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     label: {
-        fontSize: 12,
+        fontSize: s(10, 12, 16),
         fontWeight: '600',
-        marginTop: 4,
+        marginTop: s(2, 4, 6),
     }
 });

@@ -2,8 +2,18 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
+import { Dimensions, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const THEME = {
     bg: '#050A1F',
@@ -65,11 +75,11 @@ const SuggestionCard = ({ item }: { item: Suggestion }) => {
 
             <View style={styles.cardHeader}>
                 <View style={styles.dateRow}>
-                    <Ionicons name="calendar-outline" size={14} color={THEME.textMuted} />
+                    <Ionicons name="calendar-outline" size={s(12, 14, 18)} color={THEME.textMuted} />
                     <Text style={styles.dateText}>{item.dateText}</Text>
                 </View>
                 <View style={styles.adminBadge}>
-                    <MaterialCommunityIcons name="shield-check" size={12} color={THEME.textWhite} />
+                    <MaterialCommunityIcons name="shield-check" size={s(10, 12, 16)} color={THEME.textWhite} />
                     <Text style={styles.adminBadgeText}>Admin</Text>
                 </View>
             </View>
@@ -79,7 +89,7 @@ const SuggestionCard = ({ item }: { item: Suggestion }) => {
                     <Text style={[styles.typeTagText, { color: typeColor }]}>{item.type}</Text>
                 </View>
 
-                {item.isHot && <MaterialCommunityIcons name="fire" size={24} color={THEME.adminBadge} style={{ marginRight: 10 }} />}
+                {item.isHot && <MaterialCommunityIcons name="fire" size={s(20, 24, 30)} color={THEME.adminBadge} style={{ marginRight: s(8, 10, 14) }} />}
 
                 <View style={styles.badgesWrapper}>
                     {item.numbers.map((num, index) => (
@@ -97,7 +107,7 @@ const SuggestionCard = ({ item }: { item: Suggestion }) => {
                 onPress={() => router.navigate('/wallet-profile/number-play')}
             >
                 <Text style={styles.actionBtnText}>ယခုပဲ ထိုးမည်</Text>
-                <Ionicons name="arrow-forward" size={16} color={THEME.bg} style={{ marginLeft: 6 }} />
+                <Ionicons name="arrow-forward" size={s(14, 16, 20)} color={THEME.bg} style={{ marginLeft: s(4, 6, 8) }} />
             </Pressable>
 
         </View>
@@ -115,9 +125,9 @@ export default function RecommendationsScreen() {
     return (
         <View style={styles.container}>
 
-            <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 5 : 15 }]}>
+            <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 5 : s(10, 15, 20) }]}>
                 <Pressable onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={26} color={THEME.textWhite} />
+                    <Ionicons name="chevron-back" size={s(22, 26, 32)} color={THEME.textWhite} />
                 </Pressable>
                 <View>
                     <Text style={styles.headerTitle}>အကြံပြုချက်များ</Text>
@@ -148,41 +158,41 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingBottom: 15,
+        paddingHorizontal: s(12, 16, 24),
+        paddingBottom: s(12, 15, 20),
         borderBottomWidth: 1,
         borderBottomColor: THEME.borderNormal,
     },
     backButton: {
-        width: 40, height: 40,
-        borderRadius: 20,
+        width: s(36, 40, 50), height: s(36, 40, 50),
+        borderRadius: s(18, 20, 25),
         backgroundColor: THEME.inputBg,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12
+        marginRight: s(10, 12, 16)
     },
     headerTitle: {
         color: THEME.textWhite,
-        fontSize: 18,
+        fontSize: s(16, 18, 24),
         fontWeight: 'bold'
     },
     headerSubtitle: {
         color: THEME.gold,
-        fontSize: 12,
-        marginTop: 2,
+        fontSize: s(10, 12, 15),
+        marginTop: s(1, 2, 4),
     },
 
     flatListContent: {
-        paddingHorizontal: 16,
-        paddingTop: 20,
-        paddingBottom: 40,
+        paddingHorizontal: s(12, 16, 24),
+        paddingTop: s(16, 20, 30),
+        paddingBottom: s(30, 40, 60),
     },
 
     cardContainer: {
         backgroundColor: THEME.cardBg,
-        borderRadius: 20,
-        padding: 16,
-        marginBottom: 16,
+        borderRadius: s(16, 20, 28),
+        padding: s(14, 16, 24),
+        marginBottom: s(14, 16, 24),
         borderWidth: 1,
         borderColor: THEME.borderNormal,
         ...Platform.select({
@@ -202,7 +212,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 15,
+        marginBottom: s(12, 15, 20),
     },
     dateRow: {
         flexDirection: 'row',
@@ -210,42 +220,42 @@ const styles = StyleSheet.create({
     },
     dateText: {
         color: THEME.textMuted,
-        fontSize: 13,
-        marginLeft: 6,
+        fontSize: s(11, 13, 16),
+        marginLeft: s(4, 6, 8),
         fontWeight: '500',
     },
     adminBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: THEME.adminBadge,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
+        paddingHorizontal: s(6, 8, 12),
+        paddingVertical: s(3, 4, 6),
+        borderRadius: s(6, 8, 12),
     },
     adminBadgeText: {
         color: THEME.textWhite,
-        fontSize: 10,
+        fontSize: s(9, 10, 12),
         fontWeight: 'bold',
-        marginLeft: 4,
+        marginLeft: s(3, 4, 6),
     },
 
     numbersSection: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: THEME.inputBg,
-        padding: 12,
-        borderRadius: 14,
-        marginBottom: 15,
+        padding: s(10, 12, 16),
+        borderRadius: s(12, 14, 20),
+        marginBottom: s(12, 15, 20),
     },
     typeTag: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
+        paddingHorizontal: s(6, 8, 12),
+        paddingVertical: s(3, 4, 6),
+        borderRadius: s(4, 6, 8),
         borderWidth: 1,
-        marginRight: 12,
+        marginRight: s(8, 12, 16),
     },
     typeTagText: {
-        fontSize: 14,
+        fontSize: s(12, 14, 18),
         fontWeight: '900',
         fontStyle: 'italic',
     },
@@ -253,41 +263,41 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: s(6, 8, 12),
     },
     numberBadge: {
         backgroundColor: THEME.bg,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 8,
+        paddingHorizontal: s(10, 14, 18),
+        paddingVertical: s(6, 8, 12),
+        borderRadius: s(6, 8, 12),
         borderWidth: 1,
         borderColor: THEME.neonGreen,
     },
     numberText: {
         color: THEME.neonGreen,
-        fontSize: 18,
+        fontSize: s(16, 18, 24),
         fontWeight: 'bold',
-        letterSpacing: 2,
+        letterSpacing: s(1, 2, 4),
     },
 
     messageText: {
         color: THEME.textWhite,
-        fontSize: 14,
-        lineHeight: 22,
-        marginBottom: 15,
+        fontSize: s(12, 14, 18),
+        lineHeight: s(18, 22, 28),
+        marginBottom: s(12, 15, 20),
     },
 
     actionBtn: {
         flexDirection: 'row',
         backgroundColor: THEME.neonGreen,
-        paddingVertical: 12,
-        borderRadius: 12,
+        paddingVertical: s(10, 12, 16),
+        borderRadius: s(10, 12, 16),
         justifyContent: 'center',
         alignItems: 'center',
     },
     actionBtnText: {
         color: "red",
-        fontSize: 14,
+        fontSize: s(12, 14, 18),
         fontWeight: 'bold',
     }
 });

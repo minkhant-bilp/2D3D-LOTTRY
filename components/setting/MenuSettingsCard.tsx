@@ -1,9 +1,20 @@
 import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -66,14 +77,14 @@ const MenuItem = ({
         >
             <View style={styles.menuItemRow}>
                 <View style={[styles.iconWrapper, { backgroundColor: `${iconColor}15` }]}>
-                    <IconComponent name={iconName} size={20} color={iconColor} />
+                    <IconComponent name={iconName} size={s(18, 20, 24)} color={iconColor} />
                 </View>
 
                 <Text style={styles.menuTitle}>{title}</Text>
 
                 <View style={styles.rightSection}>
                     {rightText && <Text style={styles.rightText}>{rightText}</Text>}
-                    <Feather name="chevron-right" size={20} color={THEME.textMuted} />
+                    <Feather name="chevron-right" size={s(18, 20, 24)} color={THEME.textMuted} />
                 </View>
             </View>
 
@@ -82,13 +93,14 @@ const MenuItem = ({
     );
 };
 
-type Language = 'Thailand' | 'English' | 'မြန်မာ';
+type Language = 'English' | 'မြန်မာ';
 
 export default function MenuSettingsCard() {
+    const router = useRouter()
     const [language, setLanguage] = useState<Language>('မြန်မာ');
     const [showLangModal, setShowLangModal] = useState(false);
 
-    const languages: Language[] = ['Thailand', 'English', 'မြန်မာ'];
+    const languages: Language[] = ['English', 'မြန်မာ'];
 
     function openLanguageModal() {
         setShowLangModal(true);
@@ -110,15 +122,7 @@ export default function MenuSettingsCard() {
                 IconComponent={MaterialCommunityIcons}
                 iconName="email-open-outline"
                 iconColor={THEME.pinkGlow}
-                onPress={() => console.log('Notifications')}
-            />
-
-            <MenuItem
-                title="ဂိမ်းအခြေအနေများ"
-                IconComponent={Ionicons}
-                iconName="bar-chart-outline"
-                iconColor={THEME.blueGlow}
-                onPress={() => console.log('Game Status')}
+                onPress={() => router.navigate("/wallet-profile/ad")}
             />
 
             <MenuItem
@@ -142,7 +146,7 @@ export default function MenuSettingsCard() {
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Choose Language</Text>
                             <Pressable onPress={closeLanguageModal} hitSlop={10}>
-                                <Ionicons name="close" size={20} color={THEME.textMuted} />
+                                <Ionicons name="close" size={s(18, 20, 26)} color={THEME.textMuted} />
                             </Pressable>
                         </View>
 
@@ -166,9 +170,9 @@ export default function MenuSettingsCard() {
                                         </Text>
 
                                         {active ? (
-                                            <Ionicons name="checkmark-circle" size={20} color={THEME.neonGreen} />
+                                            <Ionicons name="checkmark-circle" size={s(18, 20, 24)} color={THEME.neonGreen} />
                                         ) : (
-                                            <Ionicons name="chevron-forward" size={18} color={THEME.textMuted} />
+                                            <Ionicons name="chevron-forward" size={s(16, 18, 22)} color={THEME.textMuted} />
                                         )}
                                     </Pressable>
                                 );
@@ -190,10 +194,10 @@ export default function MenuSettingsCard() {
 const styles = StyleSheet.create({
     cardContainer: {
         backgroundColor: THEME.cardBg,
-        marginHorizontal: 16,
-        borderRadius: 16,
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        marginHorizontal: s(12, 16, 24),
+        borderRadius: s(12, 16, 22),
+        paddingVertical: s(6, 8, 12),
+        paddingHorizontal: s(12, 16, 24),
         borderWidth: 1,
         borderColor: THEME.cardBorder,
         ...Platform.select({
@@ -210,43 +214,50 @@ const styles = StyleSheet.create({
     menuItemRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
+        paddingVertical: s(10, 12, 16),
     },
     iconWrapper: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        width: s(30, 36, 44),
+        height: s(30, 36, 44),
+        borderRadius: s(8, 10, 14),
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 14,
+        marginRight: s(10, 14, 18),
     },
     menuTitle: {
         flex: 1,
         color: THEME.textWhite,
-        fontSize: 14,
+        fontSize: s(12, 14, 16),
         fontWeight: '500',
     },
-    rightSection: { flexDirection: 'row', alignItems: 'center' },
-    rightText: { color: THEME.textMuted, fontSize: 13, marginRight: 8 },
+    rightSection: {
+        flexDirection: 'row',
+        alignItems: 'center'
+    },
+    rightText: {
+        color: THEME.textMuted,
+        fontSize: s(11, 13, 15),
+        marginRight: s(6, 8, 12)
+    },
 
     divider: {
         height: 1,
         backgroundColor: THEME.divider,
-        marginLeft: 50,
+        marginLeft: s(40, 50, 60),
     },
 
     backdrop: {
         flex: 1,
         backgroundColor: THEME.backdrop,
         justifyContent: 'center',
-        paddingHorizontal: 18,
+        paddingHorizontal: s(14, 18, 26),
     },
     modalCard: {
         backgroundColor: THEME.modalBg,
-        borderRadius: 18,
+        borderRadius: s(14, 18, 24),
         borderWidth: 1,
         borderColor: THEME.modalBorder,
-        padding: 14,
+        padding: s(12, 14, 20),
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
@@ -262,11 +273,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
     },
-    modalTitle: { color: THEME.textWhite, fontSize: 16, fontWeight: '700' },
-    modalSub: { color: THEME.textMuted, fontSize: 12, marginTop: 6, marginBottom: 12 },
+    modalTitle: {
+        color: THEME.textWhite,
+        fontSize: s(14, 16, 20),
+        fontWeight: '700'
+    },
+    modalSub: {
+        color: THEME.textMuted,
+        fontSize: s(10, 12, 14),
+        marginTop: s(4, 6, 8),
+        marginBottom: s(10, 12, 16)
+    },
 
     langList: {
-        borderRadius: 14,
+        borderRadius: s(10, 14, 18),
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: THEME.divider,
@@ -275,8 +295,8 @@ const styles = StyleSheet.create({
     langRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 12,
+        paddingVertical: s(10, 12, 16),
+        paddingHorizontal: s(10, 12, 16),
         borderBottomWidth: 1,
         borderBottomColor: THEME.divider,
     },
@@ -284,12 +304,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,230,118,0.08)',
     },
     langDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
+        width: s(8, 10, 12),
+        height: s(8, 10, 12),
+        borderRadius: s(4, 5, 6),
         borderWidth: 2,
         borderColor: THEME.textMuted,
-        marginRight: 10,
+        marginRight: s(8, 10, 14),
     },
     langDotActive: {
         borderColor: THEME.neonGreen,
@@ -297,7 +317,7 @@ const styles = StyleSheet.create({
     langText: {
         flex: 1,
         color: THEME.textWhite,
-        fontSize: 14,
+        fontSize: s(12, 14, 16),
         fontWeight: '600',
     },
     langTextActive: {
@@ -305,17 +325,21 @@ const styles = StyleSheet.create({
     },
 
     modalFooter: {
-        marginTop: 12,
+        marginTop: s(10, 12, 16),
         flexDirection: 'row',
         justifyContent: 'flex-end',
     },
     cancelBtn: {
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-        borderRadius: 12,
+        paddingVertical: s(8, 10, 14),
+        paddingHorizontal: s(12, 14, 20),
+        borderRadius: s(10, 12, 16),
         borderWidth: 1,
         borderColor: THEME.divider,
         backgroundColor: 'rgba(255,255,255,0.03)',
     },
-    cancelText: { color: THEME.textWhite, fontWeight: '700', fontSize: 13 },
+    cancelText: {
+        color: THEME.textWhite,
+        fontWeight: '700',
+        fontSize: s(11, 13, 15)
+    },
 });

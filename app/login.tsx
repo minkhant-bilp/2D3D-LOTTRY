@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    Dimensions,
     ImageBackground,
     Keyboard,
     KeyboardAvoidingView,
@@ -15,6 +16,16 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const THEME = {
     bg: '#050A1F',
@@ -72,6 +83,8 @@ export default function LoginScreen() {
         if (!ok1 || !ok2) return;
 
         console.log('LOGIN:', { email: email.trim(), password: password.trim() });
+
+        router.replace('/(setup)/selectpayment');
     }
 
     return (
@@ -85,7 +98,7 @@ export default function LoginScreen() {
                     >
                         <View style={styles.heroSoftTint} />
 
-                        <View style={[styles.heroTextArea, { paddingTop: Math.max(insets.top, 16) }]}>
+                        <View style={[styles.heroTextArea, { paddingTop: Math.max(insets.top, s(12, 16, 20)) }]}>
                             <View style={styles.textPlate}>
                                 <Text style={styles.heroTitle}>Sign In To K Shop</Text>
                                 <Text style={styles.heroSubtitle}>Let’s personalize your shopping with Lottery</Text>
@@ -98,14 +111,14 @@ export default function LoginScreen() {
                     <ScrollView
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
-                        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 22) }}
+                        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, s(18, 22, 30)) }}
                     >
                         <View style={styles.card}>
                             <Text style={styles.label}>Email Address</Text>
                             <View style={styles.fieldWrap}>
                                 <View style={[styles.inputBox, !!emailError && styles.inputBoxError]}>
                                     <View style={styles.iconPill}>
-                                        <Ionicons name="mail-outline" size={18} color={THEME.textMuted} />
+                                        <Ionicons name="mail-outline" size={s(16, 18, 22)} color={THEME.textMuted} />
                                     </View>
                                     <TextInput
                                         style={styles.input}
@@ -134,7 +147,7 @@ export default function LoginScreen() {
                             <View style={styles.fieldWrap}>
                                 <View style={[styles.inputBox, !!passwordError && styles.inputBoxError]}>
                                     <View style={styles.iconPill}>
-                                        <Ionicons name="lock-closed-outline" size={18} color={THEME.textMuted} />
+                                        <Ionicons name="lock-closed-outline" size={s(16, 18, 22)} color={THEME.textMuted} />
                                     </View>
 
                                     <TextInput
@@ -154,7 +167,7 @@ export default function LoginScreen() {
                                     <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={10} style={styles.eyePill}>
                                         <Ionicons
                                             name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                                            size={18}
+                                            size={s(16, 18, 22)}
                                             color={THEME.textMuted}
                                         />
                                     </Pressable>
@@ -174,9 +187,10 @@ export default function LoginScreen() {
                             >
                                 <Text style={styles.primaryText}>Sign In</Text>
                                 <View style={styles.arrowPill}>
-                                    <Ionicons name="arrow-forward" size={16} color={THEME.bg} />
+                                    <Ionicons name="arrow-forward" size={s(14, 16, 20)} color={THEME.bg} />
                                 </View>
                             </Pressable>
+
                             <View style={styles.dividerRow}>
                                 <View style={styles.line} />
                                 <Text style={styles.dividerText}>Or continue with</Text>
@@ -185,16 +199,16 @@ export default function LoginScreen() {
 
                             <Pressable style={styles.googleBtn} hitSlop={10}>
                                 <View style={styles.googleIcon}>
-                                    <Ionicons name="logo-google" size={18} color="#EA4335" />
+                                    <Ionicons name="logo-google" size={s(16, 18, 22)} color="#EA4335" />
                                 </View>
                                 <Text style={styles.googleText}>Continue with Google</Text>
-                                <Ionicons name="chevron-forward" size={18} color={THEME.textMuted} />
+                                <Ionicons name="chevron-forward" size={s(16, 18, 22)} color={THEME.textMuted} />
                             </Pressable>
 
 
                             <View style={styles.bottomRow}>
                                 <Text style={styles.bottomText}>Don’t have an account? </Text>
-                                <Pressable onPress={() => router.replace('/(tabs)')}>
+                                <Pressable onPress={() => router.replace('/register')}>
                                     <Text style={styles.bottomLink}>Sign Up.</Text>
                                 </Pressable>
                             </View>
@@ -208,11 +222,23 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: THEME.bg },
-    flex1: { flex: 1 },
+    root: {
+        flex: 1,
+        backgroundColor: THEME.bg
+    },
+    flex1: {
+        flex: 1
+    },
 
-    heroWrap: { width: '100%', height: 320, backgroundColor: THEME.bg },
-    hero: { width: '100%', height: '100%' },
+    heroWrap: {
+        width: '100%',
+        height: s(260, 320, 420),
+        backgroundColor: THEME.bg
+    },
+    hero: {
+        width: '100%',
+        height: '100%'
+    },
 
     heroSoftTint: {
         ...StyleSheet.absoluteFillObject,
@@ -223,17 +249,17 @@ const styles = StyleSheet.create({
         position: 'absolute',
         left: 0,
         right: 0,
-        bottom: 18,
+        bottom: s(12, 18, 24),
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: s(12, 16, 24),
     },
 
     textPlate: {
         width: '100%',
-        maxWidth: 520,
-        borderRadius: 22,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
+        maxWidth: s(520, 520, 700),
+        borderRadius: s(18, 22, 28),
+        paddingVertical: s(10, 14, 20),
+        paddingHorizontal: s(12, 16, 24),
         backgroundColor: 'rgba(5,10,31,0.38)',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.06)',
@@ -241,42 +267,42 @@ const styles = StyleSheet.create({
 
     heroTitle: {
         color: THEME.textWhite,
-        fontSize: 34,
+        fontSize: s(28, 34, 46),
         fontWeight: '900',
         textAlign: 'center',
         textShadowColor: 'rgba(0,0,0,0.35)',
         textShadowOffset: { width: 0, height: 2 },
-        textShadowRadius: 6,
+        textShadowRadius: s(4, 6, 8),
     },
     heroSubtitle: {
         color: THEME.textMuted,
-        fontSize: 14,
+        fontSize: s(12, 14, 18),
         textAlign: 'center',
-        marginTop: 8,
+        marginTop: s(6, 8, 12),
     },
 
     card: {
-        marginTop: -24,
-        marginHorizontal: 16,
+        marginTop: s(-18, -24, -36),
+        marginHorizontal: s(12, 16, 24),
         alignSelf: 'center',
         width: '100%',
-        maxWidth: 420,
+        maxWidth: s(420, 420, 600),
         backgroundColor: 'rgba(15, 23, 42, 0.88)',
         borderWidth: 1,
         borderColor: 'rgba(30, 41, 59, 0.9)',
-        borderRadius: 30,
-        paddingHorizontal: 18,
-        paddingTop: 22,
-        paddingBottom: 18,
-        elevation: 6,
+        borderRadius: s(24, 30, 40),
+        paddingHorizontal: s(14, 18, 26),
+        paddingTop: s(18, 22, 30),
+        paddingBottom: s(14, 18, 26),
+        elevation: s(4, 6, 8),
     },
 
     label: {
         color: THEME.textWhite,
-        fontSize: 15,
+        fontSize: s(13, 15, 18),
         fontWeight: '900',
-        marginBottom: 10,
-        marginLeft: 2,
+        marginBottom: s(8, 10, 14),
+        marginLeft: s(2, 2, 4),
     },
 
     fieldWrap: { position: 'relative' },
@@ -284,67 +310,76 @@ const styles = StyleSheet.create({
     inputBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        height: 66,
-        borderRadius: 20,
+        height: s(56, 66, 76),
+        borderRadius: s(16, 20, 24),
         backgroundColor: 'rgba(5,10,31,0.55)',
         borderWidth: 1,
         borderColor: 'rgba(30,41,59,0.9)',
-        paddingHorizontal: 12,
-        marginBottom: 20,
+        paddingHorizontal: s(10, 12, 16),
+        marginBottom: s(16, 20, 28),
     },
     inputBoxError: { borderColor: THEME.danger },
 
     iconPill: {
-        width: 44,
-        height: 44,
-        borderRadius: 16,
+        width: s(38, 44, 52),
+        height: s(38, 44, 52),
+        borderRadius: s(12, 16, 20),
         backgroundColor: 'rgba(21,34,67,0.65)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
+        marginRight: s(10, 12, 16),
         borderWidth: 1,
         borderColor: 'rgba(30,41,59,0.75)',
     },
 
-    input: { flex: 1, color: THEME.textWhite, fontSize: 15, height: '100%' },
+    input: {
+        flex: 1,
+        color: THEME.textWhite,
+        fontSize: s(13, 15, 18),
+        height: '100%'
+    },
 
     eyePill: {
-        width: 44,
-        height: 44,
-        borderRadius: 16,
+        width: s(38, 44, 52),
+        height: s(38, 44, 52),
+        borderRadius: s(12, 16, 20),
         backgroundColor: 'rgba(21,34,67,0.65)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: 10,
+        marginLeft: s(8, 10, 14),
         borderWidth: 1,
         borderColor: 'rgba(30,41,59,0.75)',
     },
 
     inlineError: {
         position: 'absolute',
-        left: 12,
-        right: 12,
-        bottom: 3,
+        left: s(10, 12, 16),
+        right: s(10, 12, 16),
+        bottom: s(2, 3, 5),
         color: THEME.danger,
-        fontSize: 12,
+        fontSize: s(10, 12, 14),
         fontWeight: '900',
     },
 
     primaryBtn: {
-        height: 66,
-        borderRadius: 22,
+        height: s(56, 66, 76),
+        borderRadius: s(18, 22, 28),
         backgroundColor: THEME.neonGreen,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 12,
-        marginTop: 2,
+        gap: s(10, 12, 16),
+        marginTop: s(2, 2, 4),
     },
-    primaryText: { color: THEME.bg, fontSize: 18, fontWeight: '900' },
+    primaryText: {
+        color: THEME.bg,
+        fontSize: s(16, 18, 22),
+        fontWeight: '900'
+    },
     arrowPill: {
-        width: 38,
-        height: 38,
-        borderRadius: 16,
+        width: s(32, 38, 46),
+        height: s(32, 38, 46),
+        borderRadius: s(12, 16, 20),
         backgroundColor: 'rgba(5,10,31,0.12)',
         justifyContent: 'center',
         alignItems: 'center',
@@ -353,14 +388,14 @@ const styles = StyleSheet.create({
     socialRow: {
         flexDirection: 'row',
         justifyContent: 'center',
-        gap: 14,
-        marginTop: 18,
-        marginBottom: 12,
+        gap: s(10, 14, 20),
+        marginTop: s(14, 18, 24),
+        marginBottom: s(10, 12, 16),
     },
     socialBtn: {
-        width: 56,
-        height: 56,
-        borderRadius: 20,
+        width: s(48, 56, 68),
+        height: s(48, 56, 68),
+        borderRadius: s(16, 20, 24),
         backgroundColor: 'rgba(5,10,31,0.55)',
         borderWidth: 1,
         borderColor: 'rgba(30,41,59,0.85)',
@@ -372,33 +407,33 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 6
+        marginTop: s(4, 6, 10)
     },
     bottomText: {
         color: THEME.textMuted,
-        fontSize: 13
+        fontSize: s(11, 13, 16)
     },
     bottomLink: {
         color: THEME.neonGreen,
-        fontSize: 13,
+        fontSize: s(11, 13, 16),
         fontWeight: '900'
     },
 
     forgotWrap: {
         alignSelf: 'center',
-        marginTop: 10
+        marginTop: s(8, 10, 14)
     },
     forgot: {
         color: THEME.neonGreen,
-        fontSize: 14,
+        fontSize: s(12, 14, 18),
         fontWeight: '900',
         textDecorationLine: 'underline',
     },
     dividerRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 16,
-        marginBottom: 14
+        marginTop: s(12, 16, 22),
+        marginBottom: s(10, 14, 20)
     },
     line: {
         flex: 1,
@@ -407,38 +442,38 @@ const styles = StyleSheet.create({
     },
     dividerText: {
         color: THEME.textMuted,
-        paddingHorizontal: 12,
-        fontSize: 13,
+        paddingHorizontal: s(10, 12, 16),
+        fontSize: s(11, 13, 16),
         fontWeight: '800'
     },
 
     googleBtn: {
-        height: 75,
-        borderRadius: 18,
+        height: s(60, 75, 90),
+        borderRadius: s(14, 18, 24),
         backgroundColor: 'rgba(255,255,255,0.04)',
         borderWidth: 1,
         borderColor: THEME.border,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 12,
-        gap: 10,
+        paddingHorizontal: s(10, 12, 16),
+        gap: s(8, 10, 14),
     },
     googleIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 14,
+        width: s(34, 40, 50),
+        height: s(34, 40, 50),
+        borderRadius: s(10, 14, 18),
         backgroundColor: 'rgba(0,230,118,0.10)',
         borderWidth: 1,
         borderColor: 'rgba(0,230,118,0.25)',
         alignItems: 'center',
         justifyContent: 'center',
-        left: 60
+        left: s(30, 60, 90)
     },
     googleText: {
         flex: 1,
         color: THEME.textWhite,
-        fontSize: 14,
+        fontSize: s(12, 14, 18),
         fontWeight: '900',
-        marginLeft: 65
+        marginLeft: s(35, 65, 95)
     },
 });

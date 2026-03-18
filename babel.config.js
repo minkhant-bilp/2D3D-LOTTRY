@@ -2,15 +2,20 @@ module.exports = function (api) {
   api.cache(true);
 
   return {
-    presets: [['babel-preset-expo'], 'nativewind/babel'],
-
+    presets: [
+      [
+        'babel-preset-expo',
+        {
+          'react-compiler': true, 
+        },
+      ],
+      'nativewind/babel',
+    ],
     plugins: [
-      [ 'babel-plugin-react-compiler'],
       [
         'module-resolver',
         {
           root: ['./'],
-
           alias: {
             '@': './',
             'tailwind.config': './tailwind.config.js',

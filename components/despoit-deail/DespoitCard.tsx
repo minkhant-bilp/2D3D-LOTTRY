@@ -2,8 +2,18 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const THEME = {
     bg: '#050A1F',
@@ -45,7 +55,7 @@ export default function BenefitsTableScreen() {
         <View style={styles.cardContainer}>
             <View style={styles.cardHeader}>
                 <View style={styles.iconBox}>
-                    <MaterialCommunityIcons name={game.icon} size={24} color={THEME.textWhite} />
+                    <MaterialCommunityIcons name={game.icon} size={s(20, 24, 30)} color={THEME.textWhite} />
                 </View>
                 <Text style={styles.cardTitle}>{game.title}</Text>
             </View>
@@ -62,16 +72,13 @@ export default function BenefitsTableScreen() {
                 return (
                     <View key={index.toString()} style={[styles.tableRow, isLast ? { borderBottomWidth: 0 } : {}]}>
 
-
                         <View style={styles.amountBadge}>
                             <Text style={styles.betAmountText}>
                                 {betAmount.toLocaleString()} <Text style={styles.symbolText}>{currencySymbol}</Text>
                             </Text>
                         </View>
 
-
-                        <Ionicons name="arrow-forward" size={16} color={THEME.textMuted} />
-
+                        <Ionicons name="arrow-forward" size={s(14, 16, 20)} color={THEME.textMuted} />
 
                         <View style={styles.winBadge}>
                             <Text style={styles.winAmountText}>
@@ -88,9 +95,9 @@ export default function BenefitsTableScreen() {
     return (
         <View style={styles.container}>
 
-            <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 5 : 15 }]}>
+            <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 5 : s(10, 15, 20) }]}>
                 <Pressable onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={26} color={THEME.textWhite} />
+                    <Ionicons name="chevron-back" size={s(20, 26, 32)} color={THEME.textWhite} />
                 </Pressable>
                 <Text style={styles.headerTitle}>ရပိုင်ခွင့် ဇယားများ</Text>
             </View>
@@ -116,7 +123,7 @@ export default function BenefitsTableScreen() {
                 contentContainerStyle={styles.scrollContent}
             >
                 <View style={styles.infoBanner}>
-                    <Ionicons name="information-circle" size={20} color={THEME.gold} />
+                    <Ionicons name="information-circle" size={s(16, 20, 26)} color={THEME.gold} />
                     <Text style={styles.infoText}>
                         အောက်ပါဇယားတွင် ထိုးကြေးပမာဏအလိုက် ရရှိနိုင်မည့် အကျိုးအမြတ်များကို အလွယ်တကူ ကြည့်ရှုနိုင်ပါသည်။
                     </Text>
@@ -141,56 +148,67 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingBottom: 15
+        paddingHorizontal: s(12, 16, 24),
+        paddingBottom: s(10, 15, 20)
     },
     backButton: {
-        width: 40, height: 40,
-        borderRadius: 20,
+        width: s(36, 40, 50), height: s(36, 40, 50),
+        borderRadius: s(18, 20, 25),
         backgroundColor: THEME.borderNormal,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12
+        marginRight: s(10, 12, 16)
     },
     headerTitle: {
         color: THEME.textWhite,
-        fontSize: 18,
+        fontSize: s(16, 18, 24),
         fontWeight: 'bold'
     },
 
     switcherWrapper: {
-        paddingHorizontal: 16,
-        marginBottom: 10,
+        paddingHorizontal: s(12, 16, 24),
+        marginBottom: s(8, 10, 14),
     },
     switcherContainer: {
         flexDirection: 'row',
         backgroundColor: THEME.inputBg,
-        borderRadius: 12,
-        padding: 4,
+        borderRadius: s(10, 12, 16),
+        padding: s(3, 4, 6),
     },
     switchTab: {
         flex: 1,
-        paddingVertical: 12,
+        paddingVertical: s(10, 12, 16),
         alignItems: 'center',
-        borderRadius: 10
+        borderRadius: s(8, 10, 14)
     },
-    switchTabActiveMMK: { backgroundColor: THEME.mmkColor },
-    switchTabActiveTHB: { backgroundColor: THEME.thbColor },
-    switchText: { color: THEME.textMuted, fontSize: 14, fontWeight: 'bold' },
-    switchTextActive: { color: '#000000', fontWeight: '900' },
+    switchTabActiveMMK: {
+        backgroundColor: THEME.mmkColor
+    },
+    switchTabActiveTHB: {
+        backgroundColor: THEME.thbColor
+    },
+    switchText: {
+        color: THEME.textMuted,
+        fontSize: s(12, 14, 18),
+        fontWeight: 'bold'
+    },
+    switchTextActive: {
+        color: '#000000',
+        fontWeight: '900'
+    },
 
     scrollContent: {
-        paddingHorizontal: 16,
-        paddingBottom: 40,
-        paddingTop: 10
+        paddingHorizontal: s(12, 16, 24),
+        paddingBottom: s(30, 40, 60),
+        paddingTop: s(8, 10, 14)
     },
 
     infoBanner: {
         flexDirection: 'row',
         backgroundColor: 'rgba(255, 215, 0, 0.1)',
-        padding: 12,
-        borderRadius: 10,
-        marginBottom: 20,
+        padding: s(10, 12, 16),
+        borderRadius: s(8, 10, 14),
+        marginBottom: s(15, 20, 30),
         borderWidth: 1,
         borderColor: 'rgba(255, 215, 0, 0.3)',
         alignItems: 'center',
@@ -198,54 +216,54 @@ const styles = StyleSheet.create({
     infoText: {
         flex: 1,
         color: THEME.gold,
-        fontSize: 12,
-        marginLeft: 8,
-        lineHeight: 18,
+        fontSize: s(10, 12, 15),
+        marginLeft: s(6, 8, 12),
+        lineHeight: s(14, 18, 24),
     },
     cardContainer: {
         backgroundColor: THEME.cardBg,
-        borderRadius: 16,
+        borderRadius: s(12, 16, 24),
         borderWidth: 1,
         borderColor: THEME.borderNormal,
-        marginBottom: 20,
+        marginBottom: s(15, 20, 30),
         overflow: 'hidden',
     },
     cardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: THEME.inputBg,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
+        paddingHorizontal: s(12, 16, 24),
+        paddingVertical: s(12, 14, 20),
         borderBottomWidth: 1,
         borderBottomColor: THEME.borderNormal,
     },
     iconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        width: s(32, 36, 46),
+        height: s(32, 36, 46),
+        borderRadius: s(8, 10, 14),
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
+        marginRight: s(10, 12, 16),
     },
     cardTitle: {
         color: THEME.textWhite,
-        fontSize: 16,
+        fontSize: s(14, 16, 20),
         fontWeight: 'bold',
     },
 
     tableHeaderRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
+        paddingHorizontal: s(15, 20, 30),
+        paddingVertical: s(10, 12, 18),
         backgroundColor: 'rgba(255, 255, 255, 0.02)',
         borderBottomWidth: 1,
         borderBottomColor: THEME.borderNormal,
     },
     tableHeaderText: {
         color: THEME.textMuted,
-        fontSize: 12,
+        fontSize: s(10, 12, 15),
         fontWeight: 'bold',
     },
 
@@ -253,8 +271,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
+        paddingHorizontal: s(15, 20, 30),
+        paddingVertical: s(12, 14, 20),
         borderBottomWidth: 1,
         borderBottomColor: THEME.borderNormal,
     },
@@ -264,11 +282,11 @@ const styles = StyleSheet.create({
     },
     betAmountText: {
         color: THEME.textWhite,
-        fontSize: 15,
+        fontSize: s(13, 15, 18),
         fontWeight: 'bold',
     },
     symbolText: {
-        fontSize: 12,
+        fontSize: s(10, 12, 14),
         color: THEME.textMuted,
     },
     winBadge: {
@@ -277,11 +295,11 @@ const styles = StyleSheet.create({
     },
     winAmountText: {
         color: THEME.gold,
-        fontSize: 17,
+        fontSize: s(15, 17, 22),
         fontWeight: '900',
     },
     symbolTextGold: {
-        fontSize: 12,
+        fontSize: s(10, 12, 14),
         color: THEME.gold,
         fontWeight: 'bold',
     },

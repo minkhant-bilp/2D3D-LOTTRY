@@ -1,194 +1,222 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
+import Advice from './Advice';
 
-const THEME = {
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
+
+const COLORS = {
     cardBg: '#0B132B',
-    cardBorder: 'rgba(0, 230, 118, 0.3)',
+    cardBorderLive: 'rgba(0, 230, 118, 0.3)',
     textWhite: '#FFFFFF',
     textMuted: '#8A9BB3',
     neonGreen: '#00E676',
-    redLive: '#FF3B30',
-    digitBg: '#152243',
+    redLive: '#FF453A',
+    surfaceBox: '#152243',
+    gold: '#FFD700',
+};
+
+const LiveIndicator = () => {
+    return (
+        <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>LIVE</Text>
+        </View>
+    );
 };
 
 export function LiveNumberCard() {
     return (
-        <View style={styles.cardContainer}>
+        <View>
+            <View style={[styles.cardContainer, { borderColor: COLORS.cardBorderLive }]}>
 
-            <View style={styles.cardHeader}>
-                <View style={styles.liveBadge}>
-                    <View style={styles.liveDot} />
-                    <Text style={styles.liveText}>LIVE</Text>
+                <View style={styles.header}>
+                    <LiveIndicator />
+                    <Text style={styles.timeText}>04:30:45 PM</Text>
                 </View>
-                <Text style={styles.timeText}>04:30 PM</Text>
+
+                <View style={styles.mainDisplay}>
+                    <Text style={styles.bigNumber}>85</Text>
+                    <View style={styles.marketDataRow}>
+                        <View style={styles.marketBox}>
+                            <Text style={styles.marketLabel}>SET</Text>
+                            <Text style={styles.marketValue}>
+                                1,452.<Text style={styles.highlightDigit}>8</Text>3
+                            </Text>
+                        </View>
+                        <View style={styles.marketDivider} />
+                        <View style={styles.marketBox}>
+                            <Text style={styles.marketLabel}>Value</Text>
+                            <Text style={styles.marketValue}>
+                                45,213.2<Text style={styles.highlightDigit}>5</Text>
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.footer}>
+                    <View style={styles.historyBlock}>
+                        <Ionicons name="sunny-outline" size={s(14, 18, 24)} color={COLORS.textMuted} style={{ marginBottom: s(2, 4, 6) }} />
+                        <Text style={styles.historyLabel}>09:00 AM</Text>
+                        <Text style={styles.historyValue}>23</Text>
+                    </View>
+
+                    <View style={styles.footerDivider} />
+
+                    <View style={styles.historyBlock}>
+                        <Ionicons name="sunny" size={s(14, 18, 24)} color={COLORS.gold} style={{ marginBottom: s(2, 4, 6) }} />
+                        <Text style={styles.historyLabel}>12:01 PM</Text>
+                        <Text style={[styles.historyValue, { color: COLORS.gold }]}>45</Text>
+                    </View>
+
+                    <View style={styles.footerDivider} />
+
+                    <View style={styles.historyBlock}>
+                        <Ionicons name="partly-sunny" size={s(14, 18, 24)} color={COLORS.neonGreen} style={{ marginBottom: s(2, 4, 6) }} />
+                        <Text style={[styles.historyLabel, { color: COLORS.neonGreen }]}>04:30 PM</Text>
+                        <Text style={[styles.historyValue, { color: COLORS.neonGreen }]}>85</Text>
+                    </View>
+                </View>
+
             </View>
 
-            <View style={styles.mainNumberWrapper}>
-                <View style={styles.digitBox}>
-                    <Text style={styles.hugeDigit}>8</Text>
-                </View>
-
-                <View style={styles.separator}>
-                    <Text style={styles.separatorText}>-</Text>
-                </View>
-
-                <View style={styles.digitBox}>
-                    <Text style={styles.hugeDigit}>5</Text>
-                </View>
-            </View>
-
-            <View style={styles.cardFooter}>
-
-                <View style={styles.statBlock}>
-                    <Text style={styles.statLabel}>မနက်ပိုင်း</Text>
-                    <Text style={[styles.statValue, { color: THEME.textMuted }]}>45</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.statBlock}>
-                    <Text style={styles.statLabel}>နေ့လည်ပိုင်း</Text>
-                    <Text style={[styles.statValue, { color: THEME.textWhite }]}>89</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.statBlock}>
-                    <Text style={[styles.statLabel, { color: THEME.neonGreen }]}>ညနေပိုင်း</Text>
-                    <Text style={[styles.statValue, { color: THEME.neonGreen }]}>85</Text>
-                </View>
-
-            </View>
-
+            <Advice />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     cardContainer: {
-        backgroundColor: THEME.cardBg,
-        marginHorizontal: 16,
-        marginTop: 20,
-        borderRadius: 24,
-        padding: 20,
-        borderWidth: 1,
-        borderColor: THEME.cardBorder,
+        backgroundColor: COLORS.cardBg,
+        marginHorizontal: s(12, 16, 24),
+        marginTop: s(15, 20, 30),
+        borderRadius: s(18, 24, 32),
+        padding: s(15, 20, 30),
+        borderWidth: 1.5,
         ...Platform.select({
-            ios: {
-                shadowColor: THEME.neonGreen,
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.15,
-                shadowRadius: 15,
-            },
-            android: {
-                elevation: 10,
-                shadowColor: THEME.neonGreen,
-            },
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20 },
+            android: { elevation: 10 },
         }),
     },
-    cardHeader: {
+    header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: s(18, 25, 35)
     },
     liveBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 59, 48, 0.1)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
+        backgroundColor: 'rgba(255, 69, 58, 0.15)',
+        paddingHorizontal: s(10, 12, 16),
+        paddingVertical: s(4, 6, 8),
+        borderRadius: s(16, 20, 28),
         borderWidth: 1,
-        borderColor: 'rgba(255, 59, 48, 0.3)',
+        borderColor: 'rgba(255, 69, 58, 0.3)'
     },
     liveDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: THEME.redLive,
-        marginRight: 6,
+        width: s(6, 8, 10),
+        height: s(6, 8, 10),
+        borderRadius: s(3, 4, 5),
+        backgroundColor: COLORS.redLive,
+        marginRight: s(4, 6, 8)
     },
     liveText: {
-        color: THEME.redLive,
-        fontSize: 12,
-        fontWeight: 'bold',
-        letterSpacing: 1,
+        color: COLORS.redLive,
+        fontSize: s(11, 13, 16),
+        fontWeight: '900',
+        letterSpacing: 1
     },
     timeText: {
-        color: THEME.textMuted,
-        fontSize: 14,
-        fontWeight: '600',
+        color: COLORS.textMuted,
+        fontSize: s(12, 14, 18),
+        fontWeight: '700',
+        letterSpacing: 1
     },
-    mainNumberWrapper: {
-        flexDirection: 'row',
-        justifyContent: 'center',
+
+    mainDisplay: {
         alignItems: 'center',
-        marginBottom: 25,
+        marginBottom: s(20, 30, 45)
     },
-    digitBox: {
-        backgroundColor: THEME.digitBg,
-        width: 100,
-        height: 120,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.5,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 8,
-                shadowColor: '#000',
-            }
-        })
-    },
-    hugeDigit: {
-        color: THEME.neonGreen,
-        fontSize: 85,
+    bigNumber: {
+        color: COLORS.neonGreen,
+        fontSize: s(80, 110, 160),
         fontWeight: '900',
         includeFontPadding: false,
+        lineHeight: s(90, 120, 170),
+        textShadowColor: 'rgba(0, 230, 118, 0.4)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: s(15, 20, 30)
     },
-    separator: {
-        marginHorizontal: 15,
-    },
-    separatorText: {
-        color: THEME.textMuted,
-        fontSize: 40,
-        fontWeight: '300',
-    },
-    cardFooter: {
+
+    marketDataRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.25)',
-        borderRadius: 16,
-        paddingVertical: 15,
-        paddingHorizontal: 10,
+        backgroundColor: COLORS.surfaceBox,
+        paddingVertical: s(10, 12, 16),
+        paddingHorizontal: s(15, 20, 30),
+        borderRadius: s(12, 16, 24),
+        marginTop: s(8, 10, 16),
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)'
     },
-    statBlock: {
+    marketBox: {
+        alignItems: 'center',
+        paddingHorizontal: s(10, 15, 25)
+    },
+    marketLabel: {
+        color: COLORS.textMuted,
+        fontSize: s(10, 12, 15),
+        fontWeight: '600',
+        marginBottom: s(2, 4, 6)
+    },
+    marketValue: {
+        color: COLORS.textWhite,
+        fontSize: s(14, 16, 22),
+        fontWeight: 'bold',
+        letterSpacing: 0.5
+    },
+    highlightDigit: {
+        color: COLORS.neonGreen,
+        fontSize: s(18, 20, 26),
+        fontWeight: '900'
+    },
+    marketDivider: {
+        width: 1,
+        backgroundColor: 'rgba(255,255,255,0.1)'
+    },
+
+    footer: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        borderRadius: s(12, 16, 24),
+        paddingVertical: s(10, 12, 16)
+    },
+    historyBlock: {
         flex: 1,
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'center'
     },
-    statLabel: {
-        color: THEME.textMuted,
-        fontSize: 11,
-        fontWeight: '600',
-        marginBottom: 6,
+    historyLabel: {
+        color: COLORS.textMuted,
+        fontSize: s(9, 11, 14),
+        fontWeight: '700',
+        marginBottom: s(2, 4, 6)
     },
-    statValue: {
-        fontSize: 22,
-        fontWeight: 'bold',
+    historyValue: {
+        color: COLORS.textWhite,
+        fontSize: s(16, 20, 28),
+        fontWeight: '900'
     },
-    divider: {
+    footerDivider: {
         width: 1,
-        height: 35,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255,255,255,0.1)'
     }
 });

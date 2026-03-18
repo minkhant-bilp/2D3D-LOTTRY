@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    Dimensions,
     ImageBackground,
     Keyboard,
     KeyboardAvoidingView,
@@ -16,6 +17,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const THEME = {
     bg: '#050A1F',
@@ -119,7 +129,7 @@ export default function RegisterScreen() {
             password: password.trim(),
         });
 
-
+        router.replace('/(setup)/selectpayment');
     }
 
     return (
@@ -134,7 +144,7 @@ export default function RegisterScreen() {
                     >
                         <View style={styles.heroSoftTint} />
 
-                        <View style={[styles.heroTextArea, { paddingTop: Math.max(insets.top, 12) }]}>
+                        <View style={[styles.heroTextArea, { paddingTop: Math.max(insets.top, s(8, 12, 16)) }]}>
                             <View style={styles.textPlate}>
                                 <Text style={styles.heroTitle}>Create Account</Text>
                                 <Text style={styles.heroSubtitle}>Sign up to start ordering your favorite items</Text>
@@ -147,14 +157,14 @@ export default function RegisterScreen() {
                     <ScrollView
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
-                        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}
+                        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, s(18, 24, 30)) }}
                     >
                         <View style={styles.card}>
                             <Text style={styles.label}>Name</Text>
                             <View style={styles.fieldWrap}>
                                 <View style={[styles.inputBox, !!nameError && styles.inputBoxError]}>
                                     <View style={styles.iconPill}>
-                                        <Ionicons name="person-outline" size={18} color={THEME.textMuted} />
+                                        <Ionicons name="person-outline" size={s(16, 18, 22)} color={THEME.textMuted} />
                                     </View>
                                     <TextInput
                                         style={styles.input}
@@ -181,7 +191,7 @@ export default function RegisterScreen() {
                             <View style={styles.fieldWrap}>
                                 <View style={[styles.inputBox, !!emailError && styles.inputBoxError]}>
                                     <View style={styles.iconPill}>
-                                        <Ionicons name="mail-outline" size={18} color={THEME.textMuted} />
+                                        <Ionicons name="mail-outline" size={s(16, 18, 22)} color={THEME.textMuted} />
                                     </View>
                                     <TextInput
                                         style={styles.input}
@@ -209,7 +219,7 @@ export default function RegisterScreen() {
                             <View style={styles.fieldWrap}>
                                 <View style={[styles.inputBox, !!passwordError && styles.inputBoxError]}>
                                     <View style={styles.iconPill}>
-                                        <Ionicons name="lock-closed-outline" size={18} color={THEME.textMuted} />
+                                        <Ionicons name="lock-closed-outline" size={s(16, 18, 22)} color={THEME.textMuted} />
                                     </View>
 
                                     <TextInput
@@ -230,7 +240,7 @@ export default function RegisterScreen() {
                                     <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={10} style={styles.eyePill}>
                                         <Ionicons
                                             name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                                            size={18}
+                                            size={s(16, 18, 22)}
                                             color={THEME.textMuted}
                                         />
                                     </Pressable>
@@ -247,7 +257,7 @@ export default function RegisterScreen() {
                             <View style={styles.fieldWrap}>
                                 <View style={[styles.inputBox, !!confirmError && styles.inputBoxError]}>
                                     <View style={styles.iconPill}>
-                                        <Ionicons name="shield-checkmark-outline" size={18} color={THEME.textMuted} />
+                                        <Ionicons name="shield-checkmark-outline" size={s(16, 18, 22)} color={THEME.textMuted} />
                                     </View>
 
                                     <TextInput
@@ -267,7 +277,7 @@ export default function RegisterScreen() {
                                     <Pressable onPress={() => setShowConfirm((p) => !p)} hitSlop={10} style={styles.eyePill}>
                                         <Ionicons
                                             name={showConfirm ? 'eye-outline' : 'eye-off-outline'}
-                                            size={18}
+                                            size={s(16, 18, 22)}
                                             color={THEME.textMuted}
                                         />
                                     </Pressable>
@@ -287,17 +297,17 @@ export default function RegisterScreen() {
                             >
                                 <Text style={styles.primaryText}>Sign Up</Text>
                                 <View style={styles.arrowPill}>
-                                    <Ionicons name="arrow-forward" size={16} color={THEME.bg} />
+                                    <Ionicons name="arrow-forward" size={s(14, 16, 20)} color={THEME.bg} />
                                 </View>
                             </Pressable>
 
                             <View style={styles.bottomRow}>
                                 <Text style={styles.bottomText}>Already have an account? </Text>
-                                <Pressable onPress={() => router.replace('/login')}>
+                                <Pressable onPress={() => router.replace('/(setup)/selectpayment')}>
                                     <Text style={styles.bottomLink}>Log In.</Text>
                                 </Pressable>
                             </View>
-                            <View style={{ height: 30 }}></View>
+                            <View style={{ height: s(20, 30, 40) }}></View>
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>
@@ -317,7 +327,7 @@ const styles = StyleSheet.create({
 
     heroWrap: {
         width: '100%',
-        height: 230,
+        height: s(180, 230, 300),
         backgroundColor: THEME.bg
     },
     hero: {
@@ -333,17 +343,17 @@ const styles = StyleSheet.create({
         position: 'absolute',
         left: 0,
         right: 0,
-        bottom: 50,
+        bottom: s(30, 50, 70),
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: s(12, 16, 24),
     },
 
     textPlate: {
         width: '100%',
-        maxWidth: 520,
-        borderRadius: 22,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
+        maxWidth: s(520, 520, 700),
+        borderRadius: s(18, 22, 28),
+        paddingVertical: s(10, 14, 20),
+        paddingHorizontal: s(12, 16, 24),
         backgroundColor: 'rgba(5,10,31,0.38)',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.06)',
@@ -351,43 +361,43 @@ const styles = StyleSheet.create({
 
     heroTitle: {
         color: THEME.textWhite,
-        fontSize: 34,
+        fontSize: s(28, 34, 46),
         fontWeight: '900',
         textAlign: 'center',
         textShadowColor: 'rgba(0,0,0,0.35)',
         textShadowOffset: { width: 0, height: 2 },
-        textShadowRadius: 6,
+        textShadowRadius: s(4, 6, 8),
     },
     heroSubtitle: {
         color: "gray",
         fontWeight: "400",
-        fontSize: 14,
+        fontSize: s(12, 14, 18),
         textAlign: 'center',
-        marginTop: 8
+        marginTop: s(6, 8, 12)
     },
 
     card: {
-        marginTop: -10,
-        marginHorizontal: 16,
+        marginTop: s(-6, -10, -16),
+        marginHorizontal: s(12, 16, 24),
         alignSelf: 'center',
         width: '100%',
-        maxWidth: 420,
+        maxWidth: s(420, 420, 600),
         backgroundColor: 'rgba(15, 23, 42, 0.88)',
         borderWidth: 1,
         borderColor: 'rgba(30, 41, 59, 0.9)',
-        borderRadius: 30,
-        paddingHorizontal: 18,
-        paddingTop: 22,
-        paddingBottom: 18,
-        elevation: 6,
+        borderRadius: s(24, 30, 40),
+        paddingHorizontal: s(14, 18, 26),
+        paddingTop: s(18, 22, 30),
+        paddingBottom: s(14, 18, 26),
+        elevation: s(4, 6, 8),
     },
 
     label: {
         color: THEME.textWhite,
-        fontSize: 15,
+        fontSize: s(13, 15, 18),
         fontWeight: '900',
-        marginBottom: 10,
-        marginLeft: 2
+        marginBottom: s(8, 10, 14),
+        marginLeft: s(2, 2, 4)
     },
 
     fieldWrap: {
@@ -396,26 +406,26 @@ const styles = StyleSheet.create({
     inputBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        height: 66,
-        borderRadius: 20,
+        height: s(56, 66, 76),
+        borderRadius: s(16, 20, 24),
         backgroundColor: 'rgba(5,10,31,0.55)',
         borderWidth: 1,
         borderColor: 'rgba(30,41,59,0.9)',
-        paddingHorizontal: 12,
-        marginBottom: 20,
+        paddingHorizontal: s(10, 12, 16),
+        marginBottom: s(16, 20, 28),
     },
     inputBoxError: {
         borderColor: THEME.danger
     },
 
     iconPill: {
-        width: 44,
-        height: 44,
-        borderRadius: 16,
+        width: s(38, 44, 52),
+        height: s(38, 44, 52),
+        borderRadius: s(12, 16, 20),
         backgroundColor: 'rgba(21,34,67,0.65)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
+        marginRight: s(10, 12, 16),
         borderWidth: 1,
         borderColor: 'rgba(30,41,59,0.75)',
     },
@@ -423,51 +433,51 @@ const styles = StyleSheet.create({
     input: {
         flex: 1,
         color: THEME.textWhite,
-        fontSize: 15,
+        fontSize: s(13, 15, 18),
         height: '100%'
     },
 
     eyePill: {
-        width: 44,
-        height: 44,
-        borderRadius: 16,
+        width: s(38, 44, 52),
+        height: s(38, 44, 52),
+        borderRadius: s(12, 16, 20),
         backgroundColor: 'rgba(21,34,67,0.65)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: 10,
+        marginLeft: s(8, 10, 14),
         borderWidth: 1,
         borderColor: 'rgba(30,41,59,0.75)',
     },
 
     inlineError: {
         position: 'absolute',
-        left: 12,
-        right: 12,
-        bottom: 3,
+        left: s(10, 12, 16),
+        right: s(10, 12, 16),
+        bottom: s(2, 3, 5),
         color: THEME.danger,
-        fontSize: 12,
+        fontSize: s(10, 12, 14),
         fontWeight: '900',
     },
 
     primaryBtn: {
-        height: 66,
-        borderRadius: 22,
+        height: s(56, 66, 76),
+        borderRadius: s(18, 22, 28),
         backgroundColor: THEME.neonGreen,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 12,
-        marginTop: 2,
+        gap: s(10, 12, 16),
+        marginTop: s(2, 2, 4),
     },
     primaryText: {
         color: THEME.bg,
-        fontSize: 18,
+        fontSize: s(16, 18, 22),
         fontWeight: '900'
     },
     arrowPill: {
-        width: 38,
-        height: 38,
-        borderRadius: 16,
+        width: s(32, 38, 46),
+        height: s(32, 38, 46),
+        borderRadius: s(12, 16, 20),
         backgroundColor: 'rgba(5,10,31,0.12)',
         justifyContent: 'center',
         alignItems: 'center',
@@ -477,15 +487,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 12
+        marginTop: s(8, 12, 16)
     },
     bottomText: {
         color: THEME.textMuted,
-        fontSize: 13
+        fontSize: s(11, 13, 16)
     },
     bottomLink: {
         color: THEME.neonGreen,
-        fontSize: 13,
+        fontSize: s(11, 13, 16),
         fontWeight: '900'
     },
 });

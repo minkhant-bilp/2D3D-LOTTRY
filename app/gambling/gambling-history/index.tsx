@@ -1,7 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const THEME = {
     bg: '#050A1F',
@@ -15,7 +25,6 @@ const THEME = {
     color3D: '#FF8A00',
     colorLotto: '#E11D48',
 };
-
 
 interface BetRecord {
     id: string;
@@ -55,14 +64,12 @@ const BET_HISTORY: BetRecord[] = [
 
 const BetCard = ({ item }: { item: BetRecord }) => {
 
-
     let typeColor = THEME.color2D;
     if (item.type === '3D') typeColor = THEME.color3D;
     if (item.type === 'ထီ') typeColor = THEME.colorLotto;
 
     return (
         <View style={styles.card}>
-
             <View style={styles.cardTop}>
                 <View style={[styles.typeBadge, { backgroundColor: `${typeColor}20`, borderColor: typeColor }]}>
                     <Text style={[styles.typeText, { color: typeColor }]}>{item.type}</Text>
@@ -72,7 +79,6 @@ const BetCard = ({ item }: { item: BetRecord }) => {
                     <Text style={styles.timeText}>{item.drawTime} ပွဲစဉ်</Text>
                 </View>
             </View>
-
 
             <View style={styles.numbersContainer}>
                 {item.numbers.map((num, index) => (
@@ -84,7 +90,6 @@ const BetCard = ({ item }: { item: BetRecord }) => {
 
             <View style={styles.divider} />
 
-
             <View style={styles.cardBottom}>
                 <Text style={styles.totalLabel}>စုစုပေါင်း ကျသင့်ငွေ</Text>
                 <Text style={styles.totalAmount}>{item.totalAmount}</Text>
@@ -93,78 +98,52 @@ const BetCard = ({ item }: { item: BetRecord }) => {
     );
 };
 
-
 export default function MyBetsHistoryScreen() {
     const router = useRouter();
 
-
-    const isEmpty = BET_HISTORY.length === 0;
-
     return (
         <View style={styles.screen}>
-
             <View style={styles.header}>
                 <Pressable onPress={() => router.back()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color={THEME.text} />
+                    <Ionicons name="chevron-back" size={s(20, 24, 30)} color={THEME.text} />
                 </Pressable>
                 <Text style={styles.headerTitle}>ထိုးထားသော မှတ်တမ်း</Text>
                 <View style={styles.placeholderBtn} />
             </View>
 
-
             <View style={styles.listContainer}>
-                {isEmpty ? (
-
-                    <View style={styles.emptyContainer}>
-                        <View style={styles.emptyIconBox}>
-                            <Ionicons name="ticket-outline" size={48} color={THEME.muted} />
-                        </View>
-                        <Text style={styles.emptyTitle}>မှတ်တမ်း မရှိသေးပါ</Text>
-                        <Text style={styles.emptySubtext}>
-                            လက်ရှိမှာ သင်ထိုးထားသော ဂဏန်းမှတ်တမ်း မရှိသေးပါ။
-                        </Text>
-
-                        <Pressable style={styles.emptyBtn} onPress={() => router.replace('/')}>
-                            <Text style={styles.emptyBtnText}>ဂဏန်းသွားထိုးမည်</Text>
-                        </Pressable>
-                    </View>
-                ) : (
-                    <FlatList
-                        data={BET_HISTORY}
-                        renderItem={({ item }) => <BetCard item={item} />}
-                        keyExtractor={(item) => item.id}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.listContent}
-                    />
-                )}
-                <View style={{ height: 30 }}></View>
+                <FlatList
+                    data={BET_HISTORY}
+                    renderItem={({ item }) => <BetCard item={item} />}
+                    keyExtractor={(item) => item.id}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.listContent}
+                />
             </View>
         </View>
     );
 }
-
 
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
         backgroundColor: THEME.bg,
     },
-
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingTop: 50,
-        paddingBottom: 20,
+        paddingHorizontal: s(15, 20, 30),
+        paddingTop: s(40, 50, 70),
+        paddingBottom: s(15, 20, 30),
         backgroundColor: THEME.bg,
         borderBottomWidth: 1,
         borderBottomColor: THEME.border,
     },
     backBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
+        width: s(38, 44, 54),
+        height: s(38, 44, 54),
+        borderRadius: s(12, 14, 18),
         backgroundColor: THEME.card,
         borderWidth: 1,
         borderColor: THEME.border,
@@ -173,68 +152,22 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         color: THEME.text,
-        fontSize: 18,
+        fontSize: s(16, 18, 24),
         fontWeight: 'bold',
     },
-    placeholderBtn: { width: 44 },
-
+    placeholderBtn: { width: s(38, 44, 54) },
 
     listContainer: { flex: 1 },
     listContent: {
-        padding: 20,
-        paddingBottom: 40,
+        padding: s(15, 20, 30),
+        paddingBottom: s(30, 40, 60),
     },
-
-
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 30,
-        marginTop: -190,
-    },
-    emptyIconBox: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: THEME.card,
-        borderWidth: 1,
-        borderColor: THEME.border,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    emptyTitle: {
-        color: THEME.text,
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 8,
-    },
-    emptySubtext: {
-        color: THEME.muted,
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 30,
-    },
-    emptyBtn: {
-        backgroundColor: THEME.neon,
-        paddingHorizontal: 24,
-        paddingVertical: 14,
-        borderRadius: 14,
-    },
-    emptyBtnText: {
-        color: THEME.bg,
-        fontSize: 15,
-        fontWeight: 'bold',
-    },
-
 
     card: {
         backgroundColor: THEME.card,
-        borderRadius: 20,
-        padding: 18,
-        marginBottom: 16,
+        borderRadius: s(16, 20, 24),
+        padding: s(14, 18, 24),
+        marginBottom: s(12, 16, 22),
         borderWidth: 1,
         borderColor: THEME.border,
     },
@@ -242,48 +175,47 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: s(12, 16, 20),
     },
 
     typeBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 10,
+        paddingHorizontal: s(10, 12, 16),
+        paddingVertical: s(4, 6, 8),
+        borderRadius: s(8, 10, 14),
         borderWidth: 1,
     },
     typeText: {
-        fontSize: 14,
+        fontSize: s(12, 14, 16),
         fontWeight: '900',
     },
 
-
     dateText: {
         color: THEME.text,
-        fontSize: 13,
+        fontSize: s(11, 13, 15),
         fontWeight: 'bold',
-        marginBottom: 2,
+        marginBottom: s(2, 2, 4),
     },
     timeText: {
         color: THEME.muted,
-        fontSize: 11,
+        fontSize: s(10, 11, 13),
     },
 
     numbersContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 10,
+        gap: s(6, 10, 14),
     },
     numberPill: {
         backgroundColor: 'rgba(255,255,255,0.06)',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 12,
+        paddingHorizontal: s(12, 16, 22),
+        paddingVertical: s(8, 10, 14),
+        borderRadius: s(10, 12, 16),
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
     },
     numberText: {
         color: THEME.neon,
-        fontSize: 18,
+        fontSize: s(16, 18, 24),
         fontWeight: '900',
         letterSpacing: 1,
     },
@@ -291,9 +223,8 @@ const styles = StyleSheet.create({
     divider: {
         height: 1,
         backgroundColor: THEME.border,
-        marginVertical: 16,
+        marginVertical: s(12, 16, 20),
     },
-
 
     cardBottom: {
         flexDirection: 'row',
@@ -302,12 +233,12 @@ const styles = StyleSheet.create({
     },
     totalLabel: {
         color: THEME.muted,
-        fontSize: 13,
+        fontSize: s(11, 13, 15),
         fontWeight: '600',
     },
     totalAmount: {
         color: THEME.text,
-        fontSize: 18,
+        fontSize: s(16, 18, 24),
         fontWeight: 'bold',
     },
 });

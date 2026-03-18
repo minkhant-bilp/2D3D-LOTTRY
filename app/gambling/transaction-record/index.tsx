@@ -1,6 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const THEME = {
     bg: '#050A1F',
@@ -9,325 +20,425 @@ const THEME = {
     text: '#FFFFFF',
     muted: '#8A9BB3',
     neon: '#00E676',
-    boxBg: 'rgba(255,255,255,0.03)',
-
-    warn: '#FFB020',
-    warnBg: 'rgba(255,176,32,0.12)',
-    warnBorder: 'rgba(255,176,32,0.25)',
-
-    okBg: 'rgba(0,230,118,0.10)',
-    okBorder: 'rgba(0,230,118,0.25)',
+    danger: '#FF4D4D',
+    warning: '#FFB020',
 };
 
-type Tab = 'CHAI' | 'LOTTO';
+type CategoryType = '2D' | '3D' | 'THAI' | 'MM';
 
-type ChaiRecord = {
+interface TransactionRecord {
     id: string;
+    category: CategoryType;
     date: string;
-    type: '2D' | '3D';
-    number: string;
+    time: string;
+    numbers: string[];
+    totalCount: number;
     amount: string;
-    status: 'PENDING' | 'WIN' | 'LOSE';
-};
+    status: 'success' | 'failed' | 'pending';
+}
 
-type LottoRecord = {
-    id: string;
-    drawDate: string;
-    tickets: string[];
-    totalAmount: string;
-    status: 'waiting' | 'completed';
-};
-
-const CHAI_DATA: ChaiRecord[] = [
-    { id: 'c1', date: '6 March 2026', type: '2D', number: '53', amount: '5,000', status: 'PENDING' },
-    { id: 'c2', date: '6 March 2026', type: '3D', number: '123', amount: '3,000', status: 'WIN' },
-    { id: 'c3', date: '5 March 2026', type: '2D', number: '08', amount: '1,500', status: 'LOSE' },
-];
-
-const LOTTO_DATA: LottoRecord[] = [
+const TRANSACTION_HISTORY: TransactionRecord[] = [
     {
-        id: 'l1',
-        drawDate: '၁ ဧပြီ ၂၀၂၆',
-        tickets: ['က - ၁၂၃၄၅၆', 'ခ - ၆၅၄၃၂၁'],
-        totalAmount: '၄,၀၀၀ ကျပ်',
-        status: 'waiting',
+        id: '1', category: '2D', date: '8 March 2026', time: '09:30 AM',
+        numbers: ['00', '11'], totalCount: 2,
+        amount: '2,000 Ks', status: 'failed'
     },
     {
-        id: 'l2',
-        drawDate: '၁ မတ် ၂၀၂၆',
-        tickets: ['င - ၁၁၁၂၂၂'],
-        totalAmount: '၂,၀၀၀ ကျပ်',
-        status: 'completed',
+        id: '2', category: '2D', date: '7 March 2026', time: '01:15 PM',
+        numbers: ['77', '88'], totalCount: 2,
+        amount: '2,000 Ks', status: 'pending'
+    },
+    {
+        id: '3', category: '2D', date: '5 March 2026', time: '09:00 AM',
+        numbers: ['15', '20'], totalCount: 2,
+        amount: '2,000 Ks', status: 'success'
+    },
+    {
+        id: '4', category: '3D', date: '8 March 2026', time: '02:15 PM',
+        numbers: ['123', '456'], totalCount: 2,
+        amount: '2,000 Ks', status: 'success'
     },
 ];
 
-export default function RecordsHub() {
-    const [tab, setTab] = useState<Tab>('CHAI');
+const TransactionCard = ({ item }: { item: TransactionRecord }) => {
+    const router = useRouter();
+    const isSuccess = item.status === 'success';
+    const isPending = item.status === 'pending';
+    const isFailed = item.status === 'failed';
+
+    let statusColor = THEME.neon;
+    let statusText = '';
+    let statusIcon: keyof typeof Ionicons.glyphMap = 'checkmark-circle';
+
+    if (isSuccess) {
+        statusColor = THEME.neon;
+        statusText = 'အောင်မြင်ပါသည်';
+        statusIcon = 'checkmark-circle';
+    } else if (isPending) {
+        statusColor = THEME.warning;
+        statusText = 'စစ်ဆေးနေပါသည်';
+        statusIcon = 'time-outline';
+    } else if (isFailed) {
+        statusColor = THEME.danger;
+        statusText = 'ပယ်ချခံရပါသည်';
+        statusIcon = 'close-circle';
+    }
 
     return (
-        <View style={styles.screen}>
-            <View style={styles.header}>
-                <View style={styles.logo}>
-                    <Ionicons name="albums-outline" size={26} color={THEME.neon} />
-                </View>
-                <Text style={styles.title}>Records</Text>
-                <Text style={styles.subtitle}>Chai bets and Lotto tickets are separated for easy checking.</Text>
-            </View>
-
-            <View style={styles.tabs}>
-                <TabBtn title="Chai Records" active={tab === 'CHAI'} onPress={() => setTab('CHAI')} icon="bar-chart-outline" />
-                <TabBtn title="Lotto Records" active={tab === 'LOTTO'} onPress={() => setTab('LOTTO')} icon="ticket-outline" />
-            </View>
-
-            {tab === 'CHAI' ? (
-                <FlatList
-                    data={CHAI_DATA}
-                    keyExtractor={(i) => i.id}
-                    renderItem={({ item }) => <ChaiCard item={item} />}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.listContent}
-                    ListEmptyComponent={<Empty text="No Chai records yet." />}
-                />
-            ) : (
-                <FlatList
-                    data={LOTTO_DATA}
-                    keyExtractor={(i) => i.id}
-                    renderItem={({ item }) => <LottoCard item={item} />}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.listContent}
-                    ListEmptyComponent={<Empty text="No Lotto records yet." />}
-                />
-            )}
-        </View>
-    );
-}
-
-function TabBtn({
-    title,
-    active,
-    onPress,
-    icon,
-}: {
-    title: string;
-    active: boolean;
-    onPress: () => void;
-    icon: React.ComponentProps<typeof Ionicons>['name'];
-}) {
-    return (
-        <Pressable onPress={onPress} style={[styles.tabBtn, active && styles.tabBtnActive]}>
-            <Ionicons name={icon} size={18} color={active ? THEME.neon : THEME.muted} />
-            <Text style={[styles.tabText, active && styles.tabTextActive]}>{title}</Text>
-        </Pressable>
-    );
-}
-
-function ChaiCard({ item }: { item: ChaiRecord }) {
-    const badgeStyle =
-        item.status === 'PENDING'
-            ? styles.badgePending
-            : item.status === 'WIN'
-                ? styles.badgeWin
-                : styles.badgeLose;
-
-    return (
-        <View style={styles.card}>
+        <View style={[styles.card, isFailed && styles.cardFailed]}>
             <View style={styles.cardTop}>
-                <View style={styles.chip}>
-                    <Ionicons name="pricetag-outline" size={14} color={THEME.neon} />
-                    <Text style={styles.chipText}>{item.type}</Text>
+                <View>
+                    <Text style={styles.numbersLabel}>ထိုးထားသော ဂဏန်းများ ({item.totalCount} ကွက်)</Text>
+                    <Text style={styles.numbersText}>{item.numbers.join(', ')}</Text>
                 </View>
-
-                <View style={[styles.badge, badgeStyle]}>
-                    <Text style={styles.badgeText}>{item.status}</Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.amountLabel}>ဖြတ်တောက်ငွေ</Text>
+                    <Text style={[styles.amountText, { color: statusColor }]}>{item.amount}</Text>
                 </View>
-            </View>
-
-            <Text style={styles.bigNumber}>{item.number}</Text>
-
-            <View style={styles.metaRow}>
-                <Meta icon="calendar-outline" text={item.date} />
-                <Meta icon="cash-outline" text={`${item.amount} MMK`} />
-            </View>
-        </View>
-    );
-}
-
-function LottoCard({ item }: { item: LottoRecord }) {
-    const isWaiting = item.status === 'waiting';
-    const statusColor = isWaiting ? THEME.warn : THEME.neon;
-    const statusText = isWaiting ? 'Waiting' : 'Result Out';
-    const statusIcon = isWaiting ? 'time-outline' : 'checkmark-circle-outline';
-
-    return (
-        <View style={styles.card}>
-            <View style={styles.cardTop}>
-                <View style={styles.dateBox}>
-                    <Ionicons name="calendar-outline" size={14} color={THEME.muted} />
-                    <Text style={styles.metaText}>{item.drawDate}</Text>
-                </View>
-
-                <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15`, borderColor: statusColor }]}>
-                    <Ionicons name={statusIcon} size={14} color={statusColor} />
-                    <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
-                </View>
-            </View>
-
-            <Text style={styles.sectionLabel}>Tickets</Text>
-
-            <View style={styles.ticketList}>
-                {item.tickets.map((t, idx) => (
-                    <View key={idx} style={styles.ticketPill}>
-                        <Ionicons name="ticket-outline" size={16} color={THEME.neon} />
-                        <Text style={styles.ticketText}>{t}</Text>
-                    </View>
-                ))}
             </View>
 
             <View style={styles.divider} />
 
             <View style={styles.cardBottom}>
-                <Text style={styles.totalLabel}>Total Bet</Text>
-                <Text style={styles.totalAmount}>{item.totalAmount}</Text>
+                <Text style={styles.timeText}>{item.time}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
+                    <Ionicons name={statusIcon} size={s(12, 14, 18)} color={statusColor} />
+                    <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
+                </View>
+            </View>
+
+            {isFailed && (
+                <Pressable style={styles.contactBtn} onPress={() => router.navigate("/wallet-profile/help-center")}>
+                    <Ionicons name="headset-outline" size={s(14, 16, 20)} color={THEME.danger} />
+                    <Text style={styles.contactBtnText}>Admin ဆက်သွယ်ရန်</Text>
+                </Pressable>
+            )}
+        </View>
+    );
+};
+
+const EmptyState = () => (
+    <View style={styles.emptyContainer}>
+        <View style={styles.emptyIconBox}>
+            <Ionicons name="wallet-outline" size={s(40, 48, 60)} color={THEME.muted} />
+        </View>
+        <Text style={styles.emptyTitle}>မှတ်တမ်း မရှိသေးပါ</Text>
+        <Text style={styles.emptySubtext}>
+            လက်ရှိရွေးချယ်ထားသော အကန့်တွင် ငွေစာရင်းမှတ်တမ်း မရှိသေးပါ။
+        </Text>
+    </View>
+);
+
+export default function LedgerScreen() {
+    const router = useRouter();
+    const [activeTab, setActiveTab] = useState<CategoryType>('2D');
+
+    const filteredData = TRANSACTION_HISTORY.filter(item => item.category === activeTab);
+    const isEmpty = filteredData.length === 0;
+
+    const groupedData = filteredData.reduce((acc, item) => {
+        const existingGroup = acc.find(g => g.title === item.date);
+        if (existingGroup) {
+            existingGroup.data.push(item);
+        } else {
+            acc.push({ title: item.date, data: [item] });
+        }
+        return acc;
+    }, [] as { title: string; data: TransactionRecord[] }[]);
+
+    const TODAY = '8 March 2026';
+    const totalBetsToday = filteredData
+        .filter(item => item.date === TODAY)
+        .reduce((sum, item) => sum + item.totalCount, 0);
+
+    return (
+        <View style={styles.screen}>
+            <View style={styles.header}>
+                <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                    <Ionicons name="chevron-back" size={s(20, 24, 30)} color={THEME.text} />
+                </Pressable>
+                <Text style={styles.headerTitle}>ငွေစာရင်းမှတ်တမ်း</Text>
+                <View style={styles.placeholderBtn} />
+            </View>
+
+            <View style={styles.tabWrapper}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
+                    {(['2D', '3D', 'THAI', 'MM'] as CategoryType[]).map((tab) => {
+                        const isActive = activeTab === tab;
+                        const tabNames = { '2D': '2D ချဲ', '3D': '3D ချဲ', 'THAI': 'ထိုင်းထီ', 'MM': 'မြန်မာထီ' };
+
+                        return (
+                            <Pressable key={tab} style={[styles.tabBtn, isActive && styles.tabBtnActive]} onPress={() => setActiveTab(tab)}>
+                                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                                    {tabNames[tab]}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </ScrollView>
+            </View>
+
+            {!isEmpty && (
+                <View style={styles.summaryBox}>
+                    <Ionicons name="pie-chart-outline" size={s(20, 24, 30)} color={THEME.neon} />
+                    <View style={styles.summaryTextContainer}>
+                        <Text style={styles.summaryLabel}>ယနေ့ထိုးထားသော အရေအတွက်</Text>
+                        <Text style={styles.summaryValue}>စုစုပေါင်း ({totalBetsToday}) ကွက်</Text>
+                    </View>
+                </View>
+            )}
+
+            <View style={styles.listContainer}>
+                {isEmpty ? (
+                    <EmptyState />
+                ) : (
+                    <SectionList
+                        sections={groupedData}
+                        keyExtractor={(item) => item.id}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.listContent}
+                        renderSectionHeader={({ section: { title } }) => (
+                            <View style={styles.dateHeaderBox}>
+                                <Text style={styles.dateHeaderText}>{title}</Text>
+                            </View>
+                        )}
+                        renderItem={({ item }) => <TransactionCard item={item} />}
+                    />
+                )}
+                <View style={{ height: 40 }}></View>
             </View>
         </View>
     );
 }
 
-function Meta({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }) {
-    return (
-        <View style={styles.metaItem}>
-            <Ionicons name={icon} size={14} color={THEME.muted} />
-            <Text style={styles.metaText}>{text}</Text>
-        </View>
-    );
-}
-
-function Empty({ text }: { text: string }) {
-    return (
-        <View style={styles.empty}>
-            <Ionicons name="information-circle-outline" size={20} color={THEME.muted} />
-            <Text style={styles.emptyText}>{text}</Text>
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: THEME.bg },
-
-    header: { alignItems: 'center', paddingTop: 16, paddingBottom: 12 },
-    logo: {
-        width: 56,
-        height: 56,
-        borderRadius: 18,
-        backgroundColor: 'rgba(0,230,118,0.10)',
-        borderWidth: 1,
-        borderColor: 'rgba(0,230,118,0.25)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 10,
-    },
-    title: { color: THEME.text, fontSize: 28, fontWeight: '900' },
-    subtitle: { color: THEME.muted, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18, paddingHorizontal: 16 },
-
-    tabs: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, marginBottom: 8 },
-    tabBtn: {
+    screen: {
         flex: 1,
-        height: 50,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: THEME.border,
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: THEME.bg
+    },
+
+    header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
+        justifyContent: 'space-between',
+        paddingHorizontal: s(15, 20, 30),
+        paddingTop: s(40, 50, 70),
+        paddingBottom: s(8, 10, 15),
+        backgroundColor: THEME.bg
     },
-    tabBtnActive: { backgroundColor: 'rgba(0,230,118,0.10)', borderColor: 'rgba(0,230,118,0.25)' },
-    tabText: { color: THEME.muted, fontSize: 13, fontWeight: '900' },
-    tabTextActive: { color: THEME.neon },
+    backBtn: {
+        width: s(38, 44, 54),
+        height: s(38, 44, 54),
+        borderRadius: s(12, 14, 18),
+        backgroundColor: THEME.card,
+        borderWidth: 1,
+        borderColor: THEME.border,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    headerTitle: {
+        color: THEME.text,
+        fontSize: s(18, 20, 26),
+        fontWeight: 'bold'
+    },
+    placeholderBtn: {
+        width: s(38, 44, 54)
+    },
 
-    listContent: { padding: 16, paddingBottom: 24 },
+    tabWrapper: {
+        paddingBottom: s(8, 10, 14)
+    },
+    tabContainer: {
+        paddingHorizontal: s(15, 20, 30),
+        gap: s(8, 10, 14)
+    },
+    tabBtn: {
+        paddingHorizontal: s(16, 20, 28),
+        paddingVertical: s(10, 12, 16),
+        borderRadius: s(14, 16, 20),
+        backgroundColor: THEME.card,
+        borderWidth: 1,
+        borderColor: THEME.border
+    },
+    tabBtnActive: {
+        backgroundColor: 'rgba(0, 230, 118, 0.15)',
+        borderColor: 'rgba(0, 230, 118, 0.3)'
+    },
+    tabText: {
+        color: THEME.muted,
+        fontSize: s(12, 14, 16),
+        fontWeight: 'bold'
+    },
+    tabTextActive: {
+        color: THEME.neon
+    },
+
+    summaryBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: s(15, 20, 30),
+        marginBottom: s(12, 16, 20),
+        padding: s(12, 16, 20),
+        borderRadius: s(14, 16, 20),
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1,
+        borderColor: THEME.border,
+        gap: s(10, 14, 18)
+    },
+    summaryTextContainer: {
+        flex: 1
+    },
+    summaryLabel: {
+        color: THEME.muted,
+        fontSize: s(10, 12, 14),
+        marginBottom: s(2, 4, 6)
+    },
+    summaryValue: {
+        color: THEME.text,
+        fontSize: s(14, 16, 20),
+        fontWeight: 'bold'
+    },
+
+    listContainer: {
+        flex: 1
+    },
+    listContent: {
+        paddingHorizontal: s(15, 20, 30),
+        paddingBottom: s(30, 40, 60)
+    },
+
+    dateHeaderBox: {
+        alignSelf: 'flex-start',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        paddingHorizontal: s(10, 14, 18),
+        paddingVertical: s(4, 6, 8),
+        borderRadius: s(8, 10, 14),
+        borderWidth: 1,
+        borderColor: THEME.border,
+        marginBottom: s(10, 12, 16),
+        marginTop: s(4, 6, 10),
+    },
+    dateHeaderText: {
+        color: THEME.text,
+        fontSize: s(11, 13, 15),
+        fontWeight: 'bold'
+    },
 
     card: {
         backgroundColor: THEME.card,
-        borderRadius: 18,
+        borderRadius: s(16, 20, 24),
+        padding: s(14, 18, 24),
+        marginBottom: s(12, 16, 20),
         borderWidth: 1,
-        borderColor: THEME.border,
-        padding: 14,
-        marginBottom: 12,
+        borderColor: THEME.border
     },
-    cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    cardFailed: {
+        borderColor: 'rgba(255, 77, 77, 0.4)',
+        borderStyle: 'dashed'
+    },
 
-    chip: {
+    cardTop: {
         flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(0,230,118,0.25)',
-        backgroundColor: 'rgba(0,230,118,0.08)',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start'
     },
-    chipText: { color: THEME.neon, fontSize: 12, fontWeight: '900' },
+    numbersLabel: {
+        color: THEME.muted,
+        fontSize: s(10, 12, 14),
+        marginBottom: s(4, 6, 8)
+    },
+    numbersText: {
+        color: THEME.text,
+        fontSize: s(16, 18, 24),
+        fontWeight: '900',
+        letterSpacing: 1
+    },
 
-    badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
-    badgePending: { backgroundColor: 'rgba(255,176,32,0.10)', borderColor: 'rgba(255,176,32,0.25)' },
-    badgeWin: { backgroundColor: 'rgba(0,230,118,0.10)', borderColor: 'rgba(0,230,118,0.25)' },
-    badgeLose: { backgroundColor: 'rgba(255,59,48,0.10)', borderColor: 'rgba(255,59,48,0.25)' },
-    badgeText: { color: THEME.text, fontSize: 12, fontWeight: '900' },
+    amountLabel: {
+        color: THEME.muted,
+        fontSize: s(10, 12, 14),
+        marginBottom: s(4, 6, 8)
+    },
+    amountText: {
+        fontSize: s(16, 18, 24),
+        fontWeight: 'bold'
+    },
 
-    bigNumber: { color: THEME.text, fontSize: 34, fontWeight: '900', marginTop: 10 },
+    divider: {
+        height: 1,
+        backgroundColor: THEME.border,
+        marginVertical: s(10, 14, 18)
+    },
 
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
-    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    metaText: { color: THEME.muted, fontSize: 12, fontWeight: '700' },
-
-    dateBox: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-
+    cardBottom: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+    },
+    timeText: {
+        color: THEME.muted,
+        fontSize: s(10, 12, 14),
+        fontWeight: '600'
+    },
     statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 12,
-        borderWidth: 1,
+        paddingHorizontal: s(8, 10, 14),
+        paddingVertical: s(4, 6, 8),
+        borderRadius: s(8, 10, 14),
+        gap: s(2, 4, 6)
     },
-    statusText: { fontSize: 11, fontWeight: '900' },
+    statusText: {
+        fontSize: s(9, 11, 13),
+        fontWeight: 'bold'
+    },
 
-    sectionLabel: { color: THEME.muted, fontSize: 12, marginTop: 12, marginBottom: 10, fontWeight: '800' },
-
-    ticketList: { gap: 8 },
-    ticketPill: {
+    contactBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 14,
-        backgroundColor: THEME.boxBg,
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255, 77, 77, 0.1)',
+        paddingVertical: s(10, 12, 16),
+        borderRadius: s(10, 12, 16),
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: 'rgba(255, 77, 77, 0.3)',
+        marginTop: s(10, 14, 18),
+        gap: s(4, 6, 8),
     },
-    ticketText: { color: THEME.text, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+    contactBtnText: {
+        color: THEME.danger,
+        fontSize: s(11, 13, 15),
+        fontWeight: 'bold'
+    },
 
-    divider: { height: 1, backgroundColor: THEME.border, marginVertical: 16 },
-
-    cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    totalLabel: { color: THEME.muted, fontSize: 13, fontWeight: '700' },
-    totalAmount: { color: THEME.neon, fontSize: 18, fontWeight: '900' },
-
-    empty: {
-        padding: 16,
-        borderRadius: 18,
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: s(20, 30, 50),
+        marginTop: s(-80, -100, -120)
+    },
+    emptyIconBox: {
+        width: s(80, 100, 140),
+        height: s(80, 100, 140),
+        borderRadius: s(40, 50, 70),
+        backgroundColor: THEME.card,
         borderWidth: 1,
         borderColor: THEME.border,
-        backgroundColor: THEME.boxBg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
         justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: s(15, 20, 30)
     },
-    emptyText: { color: THEME.muted, fontSize: 13, fontWeight: '800' },
+    emptyTitle: {
+        color: THEME.text,
+        fontSize: s(16, 18, 24),
+        fontWeight: 'bold',
+        marginBottom: s(6, 8, 12)
+    },
+    emptySubtext: {
+        color: THEME.muted,
+        fontSize: s(13, 14, 18),
+        textAlign: 'center',
+        lineHeight: s(20, 22, 28)
+    },
 });

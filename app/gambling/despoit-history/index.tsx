@@ -1,7 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const THEME = {
     bg: '#050A1F',
@@ -24,7 +34,6 @@ interface LottoRecord {
     status: 'waiting' | 'completed' | 'failed';
 }
 
-// 📊 (၃) နမူနာ Data
 const LOTTO_HISTORY: LottoRecord[] = [
     {
         id: '1',
@@ -57,7 +66,6 @@ const LottoCard = ({ item }: { item: LottoRecord }) => {
     const isFailed = item.status === 'failed';
     const isCompleted = item.status === 'completed';
 
-
     let statusColor = THEME.neon;
     let statusText = 'ရလဒ်ထွက်ပါပြီ';
     let statusIcon: keyof typeof Ionicons.glyphMap = 'checkmark-circle-outline';
@@ -81,30 +89,27 @@ const LottoCard = ({ item }: { item: LottoRecord }) => {
 
             <View style={styles.cardTop}>
                 <View style={styles.dateBox}>
-                    <Ionicons name="calendar-outline" size={16} color={THEME.text} />
+                    <Ionicons name="calendar-outline" size={s(14, 16, 20)} color={THEME.text} />
                     <Text style={styles.dateText}>{item.drawDate}</Text>
                 </View>
 
-
                 <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15`, borderColor: statusColor }]}>
-                    <Ionicons name={statusIcon} size={14} color={statusColor} />
+                    <Ionicons name={statusIcon} size={s(12, 14, 18)} color={statusColor} />
                     <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
                 </View>
             </View>
-
 
             <Text style={styles.ticketLabel}>ထိုးထားသော ဂဏန်းများ</Text>
             <View style={styles.ticketsContainer}>
                 {item.tickets.map((ticket, index) => (
                     <View key={index} style={styles.ticketPill}>
-                        <Ionicons name="ticket-outline" size={16} color={isFailed ? THEME.danger : THEME.neon} />
+                        <Ionicons name="ticket-outline" size={s(14, 16, 20)} color={isFailed ? THEME.danger : THEME.neon} />
                         <Text style={styles.ticketText}>{ticket}</Text>
                     </View>
                 ))}
             </View>
 
             <View style={styles.divider} />
-
 
             <View style={styles.cardBottom}>
                 <View>
@@ -117,7 +122,7 @@ const LottoCard = ({ item }: { item: LottoRecord }) => {
                         style={styles.contactBtn}
                         onPress={() => router.navigate("/wallet-profile/help-center")}
                     >
-                        <Ionicons name="headset-outline" size={16} color={THEME.danger} />
+                        <Ionicons name="headset-outline" size={s(14, 16, 20)} color={THEME.danger} />
                         <Text style={styles.contactBtnText}>Admin ဆက်သွယ်ရန်</Text>
                     </Pressable>
                 )}
@@ -135,7 +140,7 @@ export default function LottoHistoryScreen() {
         <View style={styles.screen}>
             <View style={styles.header}>
                 <Pressable onPress={() => router.back()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color={THEME.text} />
+                    <Ionicons name="chevron-back" size={s(20, 24, 30)} color={THEME.text} />
                 </Pressable>
                 <Text style={styles.headerTitle}>ထီမှတ်တမ်း</Text>
                 <View style={styles.placeholderBtn} />
@@ -145,7 +150,7 @@ export default function LottoHistoryScreen() {
                 {isEmpty ? (
                     <View style={styles.emptyContainer}>
                         <View style={styles.emptyIconBox}>
-                            <Ionicons name="receipt-outline" size={48} color={THEME.muted} />
+                            <Ionicons name="receipt-outline" size={s(40, 48, 60)} color={THEME.muted} />
                         </View>
                         <Text style={styles.emptyTitle}>မှတ်တမ်း မရှိသေးပါ</Text>
                         <Text style={styles.emptySubtext}>
@@ -179,17 +184,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingTop: 50,
-        paddingBottom: 20,
+        paddingHorizontal: s(15, 20, 30),
+        paddingTop: s(40, 50, 70),
+        paddingBottom: s(15, 20, 30),
         backgroundColor: THEME.bg,
         borderBottomWidth: 1,
         borderBottomColor: THEME.border,
     },
     backBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
+        width: s(38, 44, 54),
+        height: s(38, 44, 54),
+        borderRadius: s(12, 14, 18),
         backgroundColor: THEME.card,
         borderWidth: 1,
         borderColor: THEME.border,
@@ -198,65 +203,65 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         color: THEME.text,
-        fontSize: 20,
+        fontSize: s(18, 20, 26),
         fontWeight: 'bold',
     },
-    placeholderBtn: { width: 44 },
+    placeholderBtn: { width: s(38, 44, 54) },
 
     listContainer: { flex: 1 },
     listContent: {
-        padding: 20,
-        paddingBottom: 40,
+        padding: s(15, 20, 30),
+        paddingBottom: s(30, 40, 60),
     },
 
     emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 30,
+        paddingHorizontal: s(20, 30, 50),
         marginTop: -170,
     },
     emptyIconBox: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: s(80, 100, 140),
+        height: s(80, 100, 140),
+        borderRadius: s(40, 50, 70),
         backgroundColor: THEME.card,
         borderWidth: 1,
         borderColor: THEME.border,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: s(15, 20, 30),
     },
     emptyTitle: {
         color: THEME.text,
-        fontSize: 18,
+        fontSize: s(16, 18, 24),
         fontWeight: 'bold',
-        marginBottom: 8,
+        marginBottom: s(6, 8, 12),
     },
     emptySubtext: {
         color: THEME.muted,
-        fontSize: 14,
+        fontSize: s(13, 14, 18),
         textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 30,
+        lineHeight: s(20, 22, 28),
+        marginBottom: s(25, 30, 40),
     },
     emptyBtn: {
         backgroundColor: THEME.neon,
-        paddingHorizontal: 24,
-        paddingVertical: 14,
-        borderRadius: 14,
+        paddingHorizontal: s(20, 24, 32),
+        paddingVertical: s(12, 14, 18),
+        borderRadius: s(12, 14, 18),
     },
     emptyBtnText: {
         color: THEME.bg,
-        fontSize: 15,
+        fontSize: s(14, 15, 18),
         fontWeight: 'bold',
     },
 
     card: {
         backgroundColor: THEME.card,
-        borderRadius: 20,
-        padding: 18,
-        marginBottom: 16,
+        borderRadius: s(16, 20, 24),
+        padding: s(15, 18, 24),
+        marginBottom: s(14, 16, 20),
         borderWidth: 1,
         borderColor: THEME.border,
     },
@@ -272,53 +277,53 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: s(12, 16, 20),
     },
     dateBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: s(4, 6, 8),
     },
     dateText: {
         color: THEME.text,
-        fontSize: 14,
+        fontSize: s(13, 14, 16),
         fontWeight: 'bold',
     },
     statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 12,
+        paddingHorizontal: s(8, 10, 14),
+        paddingVertical: s(4, 6, 8),
+        borderRadius: s(10, 12, 16),
         borderWidth: 1,
-        gap: 4,
+        gap: s(2, 4, 6),
     },
     statusText: {
-        fontSize: 11,
+        fontSize: s(10, 11, 13),
         fontWeight: 'bold',
     },
 
     ticketLabel: {
         color: THEME.muted,
-        fontSize: 12,
-        marginBottom: 10,
+        fontSize: s(11, 12, 14),
+        marginBottom: s(8, 10, 14),
     },
     ticketsContainer: {
         flexDirection: 'column',
-        gap: 8,
+        gap: s(6, 8, 10),
     },
     ticketPill: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: THEME.lottoBox,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 14,
-        gap: 12,
+        paddingHorizontal: s(14, 16, 20),
+        paddingVertical: s(10, 12, 16),
+        borderRadius: s(12, 14, 18),
+        gap: s(8, 12, 16),
     },
     ticketText: {
         color: THEME.text,
-        fontSize: 16,
+        fontSize: s(14, 16, 20),
         fontWeight: 'bold',
         letterSpacing: 1,
     },
@@ -326,7 +331,7 @@ const styles = StyleSheet.create({
     divider: {
         height: 1,
         backgroundColor: THEME.border,
-        marginVertical: 16,
+        marginVertical: s(12, 16, 20),
     },
 
     cardBottom: {
@@ -336,31 +341,30 @@ const styles = StyleSheet.create({
     },
     totalLabel: {
         color: THEME.muted,
-        fontSize: 13,
+        fontSize: s(12, 13, 15),
         fontWeight: '600',
     },
     totalAmount: {
         color: THEME.neon,
-        fontSize: 18,
+        fontSize: s(16, 18, 24),
         fontWeight: 'bold',
-        marginTop: 4,
+        marginTop: s(2, 4, 6),
     },
-
 
     contactBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(255, 77, 77, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 10,
+        paddingHorizontal: s(10, 12, 16),
+        paddingVertical: s(6, 8, 10),
+        borderRadius: s(8, 10, 14),
         borderWidth: 1,
         borderColor: 'rgba(255, 77, 77, 0.3)',
-        gap: 6,
+        gap: s(4, 6, 8),
     },
     contactBtnText: {
         color: THEME.danger,
-        fontSize: 12,
+        fontSize: s(10, 12, 14),
         fontWeight: 'bold',
     },
 });

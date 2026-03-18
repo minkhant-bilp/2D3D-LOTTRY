@@ -1,7 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router'; // 🔥 Added for back navigation
 import React from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const THEME = {
     bg: '#050A1F',
@@ -64,11 +74,11 @@ export default function HelpCenter() {
 
                 <View style={styles.headerRow}>
                     <Pressable onPress={() => router.back()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color={THEME.text} />
+                        <Ionicons name="chevron-back" size={s(20, 24, 30)} color={THEME.text} />
                     </Pressable>
 
                     <View style={styles.logo}>
-                        <Ionicons name="help-circle-outline" size={26} color={THEME.neon} />
+                        <Ionicons name="help-circle-outline" size={s(22, 26, 34)} color={THEME.neon} />
                     </View>
 
                     <View style={styles.placeholderBtn} />
@@ -84,7 +94,7 @@ export default function HelpCenter() {
                 {contacts.map((item) => (
                     <Pressable key={item.title} style={styles.card} onPress={() => openLink(item.url)}>
                         <View style={[styles.iconBox, { backgroundColor: `${item.iconColor}22` }]}>
-                            <Ionicons name={item.icon} size={22} color={item.iconColor} />
+                            <Ionicons name={item.icon} size={s(20, 22, 28)} color={item.iconColor} />
                         </View>
 
                         <View style={styles.textBox}>
@@ -92,7 +102,7 @@ export default function HelpCenter() {
                             <Text style={styles.cardSub}>{item.subtitle}</Text>
                         </View>
 
-                        <Ionicons name="chevron-forward" size={20} color={THEME.muted} />
+                        <Ionicons name="chevron-forward" size={s(18, 20, 26)} color={THEME.muted} />
                     </Pressable>
                 ))}
 
@@ -103,19 +113,26 @@ export default function HelpCenter() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: THEME.bg },
-    content: { padding: 16, paddingBottom: 24, marginTop: 25 },
+    screen: {
+        flex: 1,
+        backgroundColor: THEME.bg
+    },
+    content: {
+        padding: s(14, 16, 24),
+        paddingBottom: s(20, 24, 32),
+        marginTop: s(20, 25, 35)
+    },
 
     headerRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 10
+        marginBottom: s(8, 10, 14)
     },
     backBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
+        width: s(38, 44, 54),
+        height: s(38, 44, 54),
+        borderRadius: s(12, 14, 18),
         backgroundColor: THEME.card,
         borderWidth: 1,
         borderColor: THEME.border,
@@ -123,13 +140,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     placeholderBtn: {
-        width: 44,
+        width: s(38, 44, 54),
     },
 
     logo: {
-        width: 56,
-        height: 56,
-        borderRadius: 18,
+        width: s(48, 56, 70),
+        height: s(48, 56, 70),
+        borderRadius: s(14, 18, 24),
         backgroundColor: 'rgba(0,230,118,0.10)',
         borderWidth: 1,
         borderColor: 'rgba(0,230,118,0.25)',
@@ -139,34 +156,59 @@ const styles = StyleSheet.create({
 
     titleSection: {
         alignItems: 'center',
-        marginBottom: 20
+        marginBottom: s(15, 20, 30)
     },
-    title: { color: THEME.text, fontSize: 28, fontWeight: '900' },
-    subtitle: { color: THEME.muted, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18 },
+    title: {
+        color: THEME.text,
+        fontSize: s(24, 28, 36),
+        fontWeight: '900'
+    },
+    subtitle: {
+        color: THEME.muted,
+        fontSize: s(11, 13, 16),
+        textAlign: 'center',
+        marginTop: s(4, 6, 10),
+        lineHeight: s(16, 18, 24)
+    },
 
     card: {
         backgroundColor: THEME.card,
-        borderRadius: 18,
+        borderRadius: s(14, 18, 24),
         borderWidth: 1,
         borderColor: THEME.border,
-        padding: 14,
-        marginBottom: 12,
+        padding: s(12, 14, 20),
+        marginBottom: s(10, 12, 16),
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: s(10, 12, 16),
     },
     iconBox: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
+        width: s(38, 44, 54),
+        height: s(38, 44, 54),
+        borderRadius: s(12, 14, 18),
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.06)',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    textBox: { flex: 1 },
-    cardTitle: { color: THEME.text, fontSize: 15, fontWeight: '900' },
-    cardSub: { color: THEME.muted, fontSize: 12, marginTop: 3 },
+    textBox: {
+        flex: 1
+    },
+    cardTitle: {
+        color: THEME.text,
+        fontSize: s(13, 15, 18),
+        fontWeight: '900'
+    },
+    cardSub: {
+        color: THEME.muted,
+        fontSize: s(10, 12, 14),
+        marginTop: s(2, 3, 5)
+    },
 
-    footer: { color: THEME.muted, textAlign: 'center', marginTop: 6, fontSize: 12 },
+    footer: {
+        color: THEME.muted,
+        textAlign: 'center',
+        marginTop: s(4, 6, 10),
+        fontSize: s(10, 12, 14)
+    },
 });

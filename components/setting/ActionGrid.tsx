@@ -2,12 +2,22 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withSpring,
 } from 'react-native-reanimated';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -49,7 +59,7 @@ const ActionCard = ({ title, subtitle, iconName, IconComponent, iconColor, onPre
             style={[styles.card, animatedStyle]}
         >
             <View style={[styles.iconWrapper, { backgroundColor: `${iconColor}15` }]}>
-                <IconComponent name={iconName} size={22} color={iconColor} />
+                <IconComponent name={iconName} size={s(18, 22, 28)} color={iconColor} />
             </View>
 
             <View style={styles.textWrapper}>
@@ -109,20 +119,20 @@ export default function ActionGrid() {
 
 const styles = StyleSheet.create({
     gridContainer: {
-        paddingHorizontal: 16,
-        marginTop: 15,
-        marginBottom: 20,
+        paddingHorizontal: s(12, 16, 24),
+        marginTop: s(10, 15, 20),
+        marginBottom: s(15, 20, 30),
     },
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 12,
+        marginBottom: s(8, 12, 16),
     },
     card: {
         width: '48%',
         backgroundColor: THEME.cardBg,
-        borderRadius: 16,
-        padding: 14,
+        borderRadius: s(12, 16, 22),
+        padding: s(10, 14, 20),
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
@@ -140,25 +150,25 @@ const styles = StyleSheet.create({
         }),
     },
     iconWrapper: {
-        width: 38,
-        height: 38,
-        borderRadius: 12,
+        width: s(32, 38, 48),
+        height: s(32, 38, 48),
+        borderRadius: s(10, 12, 16),
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 10,
+        marginRight: s(8, 10, 14),
     },
     textWrapper: {
         flex: 1,
     },
     title: {
         color: THEME.textWhite,
-        fontSize: 13,
+        fontSize: s(11, 13, 16),
         fontWeight: 'bold',
-        marginBottom: 4,
+        marginBottom: s(2, 4, 6),
     },
     subtitle: {
         color: THEME.textMuted,
-        fontSize: 10,
-        lineHeight: 14,
+        fontSize: s(9, 10, 12),
+        lineHeight: s(12, 14, 18),
     }
 });

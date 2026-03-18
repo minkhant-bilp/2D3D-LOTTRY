@@ -1,8 +1,18 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const THEME = {
     bg: '#050A1F',
@@ -95,12 +105,12 @@ const LotteryCard = ({ item }: { item: LotteryGame }) => {
                         <Text style={styles.closeTimeText}>ပိတ်မည် - {item.closeTime}</Text>
                     </View>
                 </View>
-                {isOpen ? <Ionicons name="chevron-forward-circle" size={24} color={THEME.neonGreen} /> : <Ionicons name="lock-closed" size={20} color={THEME.danger} />}
+                {isOpen ? <Ionicons name="chevron-forward-circle" size={s(20, 24, 32)} color={THEME.neonGreen} /> : <Ionicons name="lock-closed" size={s(16, 20, 26)} color={THEME.danger} />}
             </View>
             <View style={styles.divider} />
             <View style={[styles.timerRow, !isOpen ? styles.timerRowClosed : null]}>
                 <View style={styles.timerLabelRow}>
-                    <Ionicons name={isOpen ? "time-outline" : "close-circle-outline"} size={16} color={isOpen ? THEME.textMuted : THEME.danger} />
+                    <Ionicons name={isOpen ? "time-outline" : "close-circle-outline"} size={s(14, 16, 22)} color={isOpen ? THEME.textMuted : THEME.danger} />
                     <Text style={styles.timerLabel}>{isOpen ? 'အချိန်ကျန်ပါသေးသည်' : 'ထိုး၍မရတော့ပါ'}</Text>
                 </View>
                 {isOpen ? (
@@ -119,9 +129,9 @@ export default function LotteryGamesScreen() {
 
     return (
         <View style={styles.container}>
-            <View style={[styles.header, { paddingTop: Math.max(insets.top, 15) }]}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, s(10, 15, 20)) }]}>
                 <Pressable onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={26} color={THEME.textWhite} />
+                    <Ionicons name="chevron-back" size={s(20, 26, 34)} color={THEME.textWhite} />
                 </Pressable>
                 <Text style={styles.headerTitle}>ထီကစားရန် ရွေးချယ်ပါ</Text>
             </View>
@@ -130,13 +140,12 @@ export default function LotteryGamesScreen() {
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => <LotteryCard item={item} />}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 20) }]}
+                contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, s(15, 20, 30)) }]}
             />
         </View>
     );
 }
 
-// Styles 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -145,43 +154,43 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingBottom: 15,
+        paddingHorizontal: s(12, 16, 24),
+        paddingBottom: s(12, 15, 20),
         borderBottomWidth: 1,
         borderBottomColor: THEME.borderNormal,
-        marginTop: 20
+        marginTop: s(15, 20, 30)
     },
     backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: s(34, 40, 50),
+        height: s(34, 40, 50),
+        borderRadius: s(17, 20, 25),
         backgroundColor: THEME.inputBg,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12
+        marginRight: s(10, 12, 16)
     },
     headerTitle: {
         color: THEME.textWhite,
-        fontSize: 18,
+        fontSize: s(16, 18, 24),
         fontWeight: 'bold'
     },
     listContent: {
-        paddingHorizontal: 16,
-        paddingTop: 20
+        paddingHorizontal: s(12, 16, 24),
+        paddingTop: s(15, 20, 30)
     },
     cardContainer: {
         backgroundColor: THEME.cardBg,
-        borderRadius: 16,
+        borderRadius: s(12, 16, 22),
         borderWidth: 1,
         borderColor: THEME.borderNormal,
-        marginBottom: 16,
+        marginBottom: s(12, 16, 22),
         overflow: 'hidden'
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16
+        padding: s(12, 16, 22)
     },
     headerLeft: {
         flexDirection: 'row',
@@ -189,43 +198,43 @@ const styles = StyleSheet.create({
         flex: 1
     },
     flagBox: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
+        width: s(40, 46, 56),
+        height: s(40, 46, 56),
+        borderRadius: s(20, 23, 28),
         backgroundColor: THEME.inputBg,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 14,
+        marginRight: s(10, 14, 18),
         borderWidth: 1,
         borderColor: THEME.borderNormal
     },
     flagText: {
-        fontSize: 24
+        fontSize: s(20, 24, 30)
     },
     titleWrapper: {
         flex: 1
     },
     cardTitle: {
         color: THEME.textWhite,
-        fontSize: 16,
+        fontSize: s(14, 16, 20),
         fontWeight: 'bold',
-        marginBottom: 4
+        marginBottom: s(2, 4, 6)
     },
     closeTimeText: {
         color: THEME.textMuted,
-        fontSize: 12
+        fontSize: s(10, 12, 15)
     },
     divider: {
         height: 1,
         backgroundColor: THEME.borderNormal,
-        marginHorizontal: 16
+        marginHorizontal: s(12, 16, 22)
     },
     timerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: s(12, 16, 22),
+        paddingVertical: s(10, 12, 16),
         backgroundColor: 'rgba(255, 255, 255, 0.02)'
     },
     timerRowClosed: {
@@ -237,28 +246,28 @@ const styles = StyleSheet.create({
     },
     timerLabel: {
         color: THEME.textMuted,
-        fontSize: 12,
+        fontSize: s(10, 12, 15),
         fontWeight: '500',
-        marginLeft: 6
+        marginLeft: s(4, 6, 8)
     },
     timerValueBox: {
         backgroundColor: THEME.timerBg,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 6,
+        paddingHorizontal: s(8, 10, 14),
+        paddingVertical: s(3, 4, 6),
+        borderRadius: s(4, 6, 8),
         borderWidth: 1,
         borderColor: 'rgba(0, 230, 118, 0.3)'
     },
     timerValueText: {
         color: THEME.neonGreen,
-        fontSize: 14,
+        fontSize: s(12, 14, 18),
         fontWeight: '900',
         letterSpacing: 1,
         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace'
     },
     closedText: {
         color: THEME.danger,
-        fontSize: 13,
+        fontSize: s(11, 13, 16),
         fontWeight: 'bold',
         letterSpacing: 1
     }

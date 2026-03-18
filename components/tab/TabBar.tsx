@@ -2,8 +2,18 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React, { JSX } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmall = SCREEN_WIDTH < 360;
+const isTablet = SCREEN_WIDTH >= 768;
+
+const s = (small: any, medium: any, tablet: any) => {
+    if (isTablet) return tablet;
+    if (isSmall) return small;
+    return medium;
+};
 
 const ELON_2D_THEME = {
     background: '#0B132B',
@@ -29,7 +39,7 @@ const TabBarItem = ({ isFocused, onPress, onLongPress, label, icon }: TabBarItem
                 <View style={styles.staticBubble} />
             )}
 
-            <View style={[styles.contentContainer, isFocused && { transform: [{ translateY: -22 }] }]}>
+            <View style={[styles.contentContainer, isFocused && { transform: [{ translateY: s(-18, -22, -30) }] }]}>
                 {icon({ color: isFocused ? ELON_2D_THEME.activeColor : ELON_2D_THEME.inactiveColor })}
                 <Text style={[
                     styles.label,
@@ -51,9 +61,9 @@ export function MyTabBar({ state, descriptors, navigation }: BottomTabBarProps) 
 
     const getIcon = (routeName: string, props: any): JSX.Element | null => {
         switch (routeName) {
-            case 'index': return <Ionicons name="pulse" size={24} {...props} />;
-            case 'explore': return <MaterialIcons name="receipt-long" size={24} {...props} />;
-            case 'setting': return <Ionicons name="wallet" size={24} {...props} />;
+            case 'index': return <Ionicons name="pulse" size={s(20, 24, 30)} {...props} />;
+            case 'explore': return <MaterialIcons name="receipt-long" size={s(20, 24, 30)} {...props} />;
+            case 'setting': return <Ionicons name="wallet" size={s(20, 24, 30)} {...props} />;
             default: return null;
         }
     };
@@ -70,7 +80,7 @@ export function MyTabBar({ state, descriptors, navigation }: BottomTabBarProps) 
     return (
         <View style={[
             styles.tabBarContainer,
-            { marginBottom: insets.bottom > 0 ? insets.bottom + 10 : 25 }
+            { marginBottom: insets.bottom > 0 ? insets.bottom + s(8, 10, 14) : s(20, 25, 35) }
         ]}>
             <View style={styles.tabItemsWrapper}>
                 {state.routes.map((route, index) => {
@@ -117,14 +127,14 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        marginHorizontal: 15,
+        marginHorizontal: s(10, 15, 20),
     },
     tabItemsWrapper: {
         flexDirection: 'row',
         backgroundColor: ELON_2D_THEME.background,
-        paddingVertical: 12,
-        borderRadius: 30,
-        borderWidth: 1.5,
+        paddingVertical: s(10, 12, 16),
+        borderRadius: s(24, 30, 40),
+        borderWidth: s(1, 1.5, 2),
         borderColor: ELON_2D_THEME.borderColor,
         ...Platform.select({
             ios: {
@@ -150,12 +160,12 @@ const styles = StyleSheet.create({
     },
     staticBubble: {
         position: 'absolute',
-        top: -25,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        top: s(-20, -25, -35),
+        width: s(48, 56, 70),
+        height: s(48, 56, 70),
+        borderRadius: s(24, 28, 35),
         backgroundColor: ELON_2D_THEME.background,
-        borderWidth: 2,
+        borderWidth: s(1.5, 2, 3),
         borderColor: ELON_2D_THEME.activeColor,
         zIndex: 0,
         ...Platform.select({
@@ -172,7 +182,7 @@ const styles = StyleSheet.create({
         }),
     },
     label: {
-        fontSize: 11,
-        marginTop: 4,
+        fontSize: s(10, 11, 14),
+        marginTop: s(2, 4, 6),
     }
 });

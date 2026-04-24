@@ -14,9 +14,6 @@ export default function WalletLayOut() {
             <Stack.Screen name="about/index" options={{ headerShown: false }} />
             <Stack.Screen name="help-center/index" options={{ headerShown: false }} />
             <Stack.Screen name="ad/index" options={{ headerShown: false }} />
-            <Stack.Screen name="lottery/amount" options={{ headerShown: false }} />
-            <Stack.Screen name="lottery/paymet" options={{ headerShown: false }} />
-            <Stack.Screen name="lottery/paymetsucess" options={{ headerShown: false }} />
         </Stack>
     )
 }

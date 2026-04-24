@@ -7,12 +7,13 @@ import Animated, {
     useSharedValue,
     withSpring,
 } from 'react-native-reanimated';
+import useTranslation from '@/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmall = SCREEN_WIDTH < 360;
 const isTablet = SCREEN_WIDTH >= 768;
 
-const s = (small: any, medium: any, tablet: any) => {
+const s = (small: number, medium: number, tablet: number) => {
     if (isTablet) return tablet;
     if (isSmall) return small;
     return medium;
@@ -41,10 +42,11 @@ interface ServiceItemProps {
     IconComponent: any;
     iconName: any;
     iconColor: string;
+    iconBgStyle: any;
     onPress: () => void;
 }
 
-const ServiceItem = ({ title, IconComponent, iconName, iconColor, onPress }: ServiceItemProps) => {
+const ServiceItem = ({ title, IconComponent, iconName, iconColor, iconBgStyle, onPress }: ServiceItemProps) => {
     const scale = useSharedValue(1);
 
     const handlePressIn = () => { scale.value = withSpring(0.9, { damping: 15, stiffness: 300 }); };
@@ -61,7 +63,7 @@ const ServiceItem = ({ title, IconComponent, iconName, iconColor, onPress }: Ser
             onPressOut={handlePressOut}
             style={[styles.serviceItem, animatedStyle]}
         >
-            <View style={[styles.iconBox, { backgroundColor: `${iconColor}15` }]}>
+            <View style={[styles.iconBox, iconBgStyle]}>
                 <IconComponent name={iconName} size={s(20, 24, 30)} color={iconColor} />
             </View>
             <Text style={styles.serviceText} numberOfLines={1}>{title}</Text>
@@ -71,6 +73,7 @@ const ServiceItem = ({ title, IconComponent, iconName, iconColor, onPress }: Ser
 
 export default function ServiceCenterCard() {
     const router = useRouter();
+    const { t } = useTranslation();
 
     const [showLogoutAlert, setShowLogoutAlert] = useState(false);
 
@@ -92,43 +95,49 @@ export default function ServiceCenterCard() {
 
             <Modal visible={showLogoutAlert} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalBox}>
-                        <Ionicons name="log-out-outline" size={s(40, 48, 60)} color={THEME.redLive} style={{ marginBottom: 15 }} />
-                        <Text style={styles.modalTitle}>အကောင့်ထွက်မည်လား?</Text>
-                        <Text style={styles.modalText}>ယခုအကောင့်မှ ထွက်လိုက်ပါက နောက်တစ်ကြိမ် ပြန်လည်ဝင်ရောက်ရန် လိုအပ်ပါမည်။</Text>
+                    <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+                        <Ionicons name="log-out-outline" size={s(40, 48, 60)} color={THEME.redLive} style={styles.modalIconMargin} />
+                        <Text style={styles.modalTitle}>{t.logoutConfirmTitle}</Text>
+                        <Text style={styles.modalText}>{t.logoutConfirmDesc}</Text>
 
                         <View style={styles.modalActionsRow}>
                             <Pressable
-                                style={[styles.modalBtnCancel, { flex: 1, marginRight: 10 }]}
+                                style={styles.modalBtnCancel}
                                 onPress={() => setShowLogoutAlert(false)}
                             >
-                                <Text style={styles.modalBtnCancelText}>မထွက်ပါ</Text>
+                                <Text style={styles.modalBtnCancelText}>{t.stay}</Text>
                             </Pressable>
                             <Pressable
-                                style={[styles.modalBtnConfirm, { flex: 1 }]}
+                                style={styles.modalBtnConfirm}
                                 onPress={confirmLogout}
                             >
-                                <Text style={styles.modalBtnConfirmText}>ထွက်မည်</Text>
+                                <Text style={styles.modalBtnConfirmText}>{t.confirmLogout}</Text>
                             </Pressable>
                         </View>
-                    </View>
+                    </Pressable>
                 </View>
             </Modal>
 
-            <Text style={styles.sectionTitle}>ဝန်ဆောင်မှုဌာန</Text>
+            <Text style={styles.sectionTitle}>{t.serviceCenter}</Text>
 
             <View style={styles.card}>
                 <View style={styles.gridWrapper}>
-                    <ServiceItem
-                        title="လူညီဝန်ဆောင်မှု"
-                        IconComponent={Ionicons} iconName="headset-outline"
-                        iconColor={THEME.iconBlue} onPress={() => router.navigate("/wallet-profile/help-center")}
-                    />
+                    {/* <ServiceItem
+                        title={t.customerService}
+                        IconComponent={Ionicons}
+                        iconName="headset-outline"
+                        iconColor={THEME.iconBlue}
+                        iconBgStyle={styles.iconBgBlue}
+                        onPress={() => router.navigate("/wallet-profile/help-center")}
+                    /> */}
 
                     <ServiceItem
-                        title="အကြောင်း"
-                        IconComponent={Ionicons} iconName="cube-outline"
-                        iconColor={THEME.iconPurple} onPress={() => router.navigate("/wallet-profile/about")}
+                        title={t.about}
+                        IconComponent={Ionicons}
+                        iconName="cube-outline"
+                        iconColor={THEME.iconPurple}
+                        iconBgStyle={styles.iconBgPurple}
+                        onPress={() => router.navigate("/wallet-profile/about")}
                     />
                 </View>
             </View>
@@ -139,8 +148,8 @@ export default function ServiceCenterCard() {
                 onPressOut={onLogoutPressOut}
                 style={[styles.logoutButton, animatedLogoutStyle]}
             >
-                <Ionicons name="power-outline" size={s(18, 20, 24)} color={THEME.redLive} style={{ marginRight: 8 }} />
-                <Text style={styles.logoutText}>လော့အောက်</Text>
+                <Ionicons name="power-outline" size={s(18, 20, 24)} color={THEME.redLive} style={styles.logoutIconMargin} />
+                <Text style={styles.logoutText}>{t.logout}</Text>
             </AnimatedPressable>
 
         </View>
@@ -170,12 +179,7 @@ const styles = StyleSheet.create({
         borderColor: THEME.cardBorder,
         marginBottom: s(10, 15, 20),
         ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 5
-            },
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
             android: { elevation: 4 },
         }),
     },
@@ -196,6 +200,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: s(6, 8, 12),
     },
+
+    iconBgBlue: { backgroundColor: 'rgba(50, 173, 230, 0.15)' },
+    iconBgPurple: { backgroundColor: 'rgba(175, 82, 222, 0.15)' },
+
     serviceText: {
         color: THEME.textMuted,
         fontSize: s(9, 11, 13),
@@ -211,6 +219,9 @@ const styles = StyleSheet.create({
         borderRadius: s(12, 16, 22),
         borderWidth: 1.5,
         borderColor: 'rgba(255, 59, 48, 0.4)',
+    },
+    logoutIconMargin: {
+        marginRight: 8,
     },
     logoutText: {
         color: THEME.redLive,
@@ -236,6 +247,9 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: THEME.cardBorder
     },
+    modalIconMargin: {
+        marginBottom: 15,
+    },
     modalTitle: {
         color: THEME.textWhite,
         fontSize: s(16, 18, 24),
@@ -255,6 +269,8 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between'
     },
     modalBtnCancel: {
+        flex: 1,
+        marginRight: 10,
         backgroundColor: THEME.inputBg,
         paddingVertical: s(12, 15, 18),
         borderRadius: s(10, 14, 18),
@@ -268,6 +284,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold'
     },
     modalBtnConfirm: {
+        flex: 1,
         backgroundColor: THEME.redLive,
         paddingVertical: s(12, 15, 18),
         borderRadius: s(10, 14, 18),

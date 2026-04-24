@@ -1,12 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import useTranslation from '@/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmall = SCREEN_WIDTH < 360;
 const isTablet = SCREEN_WIDTH >= 768;
 
-const s = (small: any, medium: any, tablet: any) => {
+const s = (small: number, medium: number, tablet: number) => {
     if (isTablet) return tablet;
     if (isSmall) return small;
     return medium;
@@ -14,43 +15,45 @@ const s = (small: any, medium: any, tablet: any) => {
 
 const COLORS = {
     surface: '#121C38',
+    boxBg: '#1A2A40',
+    iconBg: '#2D3E56',
     textMain: '#FFFFFF',
-    textSub: '#8A9BB3',
-    cyan: '#00F0FF',
-    purple: '#B24BF3',
-    neonGreen: '#00E676',
-    gold: '#FFD700',
-    border: 'rgba(255, 255, 255, 0.08)',
-};
-
-const PredictionBox = ({ title, value, color, icon, isFullWidth = false }: { title: string, value: string, color: string, icon: any, isFullWidth?: boolean }) => {
-    return (
-        <View style={[styles.predBox, isFullWidth && styles.predBoxFull, { backgroundColor: `${color}10`, borderColor: `${color}30` }]}>
-            <View style={[styles.predHeader, isFullWidth && { justifyContent: 'flex-start' }]}>
-                <Ionicons name={icon} size={s(14, 16, 22)} color={color} style={{ marginRight: s(4, 6, 8) }} />
-                <Text style={[styles.predTitle, { color: color }]}>{title}</Text>
-            </View>
-            <Text style={[styles.predValue, isFullWidth && styles.predValueLarge, { color: COLORS.textMain, textAlign: isFullWidth ? 'left' : 'center' }]}>
-                {value}
-            </Text>
-        </View>
-    );
+    textSub: '#A0ABC0',
+    neonGreen: '#4ade80',
 };
 
 export default function Advice() {
+    const { t } = useTranslation();
+
     return (
         <View style={styles.container}>
 
-            <View style={styles.predictionHeader}>
-                <Ionicons name="bulb" size={s(18, 22, 28)} color={COLORS.gold} />
-                <Text style={styles.predictionSectionTitle}>ယနေ့အတွက် အထူးခန့်မှန်းချက်</Text>
-            </View>
+            <View style={styles.resultGrid}>
 
-            <View style={styles.predictionGrid}>
+                <View style={styles.resultBox}>
+                    <View style={styles.iconWrapper}>
+                        <Ionicons name="sunny-outline" size={s(20, 24, 28)} color={COLORS.neonGreen} />
+                    </View>
 
-                <View style={styles.row}>
-                    <PredictionBox title="ထိပ်စီး (Head)" value="1, 4, 8" color={COLORS.cyan} icon="arrow-up-circle" />
-                    <PredictionBox title="နောက်ပိတ် (Tail)" value="2, 7, 9" color={COLORS.purple} icon="arrow-down-circle" />
+                    <View style={styles.textWrapper}>
+                        <Text style={styles.label}>{t.noonLabel || 'မွန်းတည့်'}</Text>
+                        <Text style={styles.timeText}>12:01 PM</Text>
+                    </View>
+
+                    <Text style={styles.resultNumber}>52</Text>
+                </View>
+
+                <View style={styles.resultBox}>
+                    <View style={styles.iconWrapper}>
+                        <Ionicons name="cloudy-night-outline" size={s(20, 24, 28)} color={COLORS.neonGreen} />
+                    </View>
+
+                    <View style={styles.textWrapper}>
+                        <Text style={styles.label}>{t.eveningLabel || 'ညနေ'}</Text>
+                        <Text style={styles.timeText}>4:30 PM</Text>
+                    </View>
+
+                    <Text style={styles.resultNumber}>51</Text>
                 </View>
 
             </View>
@@ -62,61 +65,56 @@ export default function Advice() {
 const styles = StyleSheet.create({
     container: {
         marginHorizontal: s(12, 16, 24),
-        marginTop: s(20, 30, 45),
+        marginTop: s(10, 15, 20),
         paddingBottom: s(15, 20, 30),
     },
 
-    predictionHeader: {
+    resultGrid: {
+        flexDirection: 'column',
+        gap: s(12, 16, 20),
+    },
+
+    resultBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: s(10, 15, 20),
-        paddingHorizontal: s(2, 4, 8),
-    },
-    predictionSectionTitle: {
-        color: COLORS.textMain,
-        fontSize: s(14, 16, 20),
-        fontWeight: 'bold',
-        marginLeft: s(6, 8, 12),
-    },
-
-    // Grid Layout
-    predictionGrid: {
-        gap: s(8, 12, 16),
-    },
-    row: {
-        flexDirection: 'row',
-        gap: s(8, 12, 16),
-    },
-
-    predBox: {
-        flex: 1,
-        borderRadius: s(12, 16, 22),
-        padding: s(12, 16, 24),
-        borderWidth: 1,
-        justifyContent: 'center',
-    },
-    predBoxFull: {
+        backgroundColor: COLORS.boxBg,
+        borderRadius: s(14, 18, 24),
+        paddingVertical: s(14, 18, 22),
+        paddingHorizontal: s(14, 18, 22),
         width: '100%',
-        alignItems: 'flex-start',
     },
-    predHeader: {
-        flexDirection: 'row',
+
+    iconWrapper: {
+        width: s(44, 52, 60),
+        height: s(44, 52, 60),
+        backgroundColor: COLORS.iconBg,
+        borderRadius: s(10, 14, 18),
         alignItems: 'center',
-        marginBottom: s(6, 8, 12),
+        justifyContent: 'center',
+        marginRight: s(12, 16, 20),
+    },
+
+    textWrapper: {
+        flex: 1,
         justifyContent: 'center',
     },
-    predTitle: {
-        fontSize: s(11, 13, 16),
+    label: {
+        color: COLORS.textSub,
+        fontSize: s(12, 14, 16),
+        fontWeight: '600',
+        marginBottom: s(2, 4, 6),
+    },
+    timeText: {
+        color: COLORS.textMain,
+        fontSize: s(16, 18, 22),
         fontWeight: 'bold',
+        letterSpacing: 0.5,
     },
-    predValue: {
-        fontSize: s(18, 22, 28),
-        fontWeight: '900',
-        letterSpacing: s(1, 2, 3),
-    },
-    predValueLarge: {
-        fontSize: s(20, 26, 34),
-        letterSpacing: s(2, 3, 4),
-        marginTop: s(3, 4, 6),
+
+    resultNumber: {
+        color: COLORS.neonGreen,
+        fontSize: s(36, 44, 54),
+        fontWeight: 'bold',
+        includeFontPadding: false,
     }
 });

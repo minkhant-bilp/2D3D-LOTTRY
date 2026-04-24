@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
 import Advice from './Advice';
+import useTranslation from '@/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmall = SCREEN_WIDTH < 360;
@@ -24,65 +25,45 @@ const COLORS = {
     gold: '#FFD700',
 };
 
-const LiveIndicator = () => {
+const LiveIndicator = ({ label }: { label: string }) => {
     return (
         <View style={styles.liveBadge}>
             <View style={styles.liveDot} />
-            <Text style={styles.liveText}>LIVE</Text>
+            <Text style={styles.liveText}>{label}</Text>
         </View>
     );
 };
 
 export function LiveNumberCard() {
+    const { t } = useTranslation();
+
     return (
         <View>
-            <View style={[styles.cardContainer, { borderColor: COLORS.cardBorderLive }]}>
+            <View style={styles.cardContainer}>
 
                 <View style={styles.header}>
-                    <LiveIndicator />
+                    <LiveIndicator label={t.live || 'LIVE'} />
                     <Text style={styles.timeText}>04:30:45 PM</Text>
                 </View>
 
                 <View style={styles.mainDisplay}>
                     <Text style={styles.bigNumber}>85</Text>
-                    <View style={styles.marketDataRow}>
-                        <View style={styles.marketBox}>
-                            <Text style={styles.marketLabel}>SET</Text>
-                            <Text style={styles.marketValue}>
-                                1,452.<Text style={styles.highlightDigit}>8</Text>3
-                            </Text>
-                        </View>
-                        <View style={styles.marketDivider} />
-                        <View style={styles.marketBox}>
-                            <Text style={styles.marketLabel}>Value</Text>
-                            <Text style={styles.marketValue}>
-                                45,213.2<Text style={styles.highlightDigit}>5</Text>
-                            </Text>
-                        </View>
-                    </View>
+                    <View style={styles.horizontalDivider} />
                 </View>
 
                 <View style={styles.footer}>
                     <View style={styles.historyBlock}>
-                        <Ionicons name="sunny-outline" size={s(14, 18, 24)} color={COLORS.textMuted} style={{ marginBottom: s(2, 4, 6) }} />
-                        <Text style={styles.historyLabel}>09:00 AM</Text>
-                        <Text style={styles.historyValue}>23</Text>
-                    </View>
-
-                    <View style={styles.footerDivider} />
-
-                    <View style={styles.historyBlock}>
-                        <Ionicons name="sunny" size={s(14, 18, 24)} color={COLORS.gold} style={{ marginBottom: s(2, 4, 6) }} />
+                        <Ionicons name="sunny" size={s(15, 26, 32)} color={COLORS.gold} style={styles.iconMargin} />
                         <Text style={styles.historyLabel}>12:01 PM</Text>
-                        <Text style={[styles.historyValue, { color: COLORS.gold }]}>45</Text>
+                        <Text style={styles.historyValueGold}>45</Text>
                     </View>
 
                     <View style={styles.footerDivider} />
 
                     <View style={styles.historyBlock}>
-                        <Ionicons name="partly-sunny" size={s(14, 18, 24)} color={COLORS.neonGreen} style={{ marginBottom: s(2, 4, 6) }} />
-                        <Text style={[styles.historyLabel, { color: COLORS.neonGreen }]}>04:30 PM</Text>
-                        <Text style={[styles.historyValue, { color: COLORS.neonGreen }]}>85</Text>
+                        <Ionicons name="partly-sunny" size={s(15, 26, 32)} color={COLORS.neonGreen} style={styles.iconMargin} />
+                        <Text style={styles.historyLabelNeon}>04:30 PM</Text>
+                        <Text style={styles.historyValueNeon}>85</Text>
                     </View>
                 </View>
 
@@ -96,6 +77,7 @@ export function LiveNumberCard() {
 const styles = StyleSheet.create({
     cardContainer: {
         backgroundColor: COLORS.cardBg,
+        borderColor: COLORS.cardBorderLive,
         marginHorizontal: s(12, 16, 24),
         marginTop: s(15, 20, 30),
         borderRadius: s(18, 24, 32),
@@ -157,40 +139,13 @@ const styles = StyleSheet.create({
         textShadowRadius: s(15, 20, 30)
     },
 
-    marketDataRow: {
-        flexDirection: 'row',
-        backgroundColor: COLORS.surfaceBox,
-        paddingVertical: s(10, 12, 16),
-        paddingHorizontal: s(15, 20, 30),
-        borderRadius: s(12, 16, 24),
-        marginTop: s(8, 10, 16),
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)'
-    },
-    marketBox: {
-        alignItems: 'center',
-        paddingHorizontal: s(10, 15, 25)
-    },
-    marketLabel: {
-        color: COLORS.textMuted,
-        fontSize: s(10, 12, 15),
-        fontWeight: '600',
-        marginBottom: s(2, 4, 6)
-    },
-    marketValue: {
-        color: COLORS.textWhite,
-        fontSize: s(14, 16, 22),
-        fontWeight: 'bold',
-        letterSpacing: 0.5
-    },
-    highlightDigit: {
-        color: COLORS.neonGreen,
-        fontSize: s(18, 20, 26),
-        fontWeight: '900'
-    },
-    marketDivider: {
-        width: 1,
-        backgroundColor: 'rgba(255,255,255,0.1)'
+    // အသစ်ထည့်ထားသော Horizontal Divider ၏ Style
+    horizontalDivider: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        alignSelf: 'stretch',
+        marginTop: s(15, 20, 30),
+        marginHorizontal: s(10, 15, 20)
     },
 
     footer: {
@@ -206,17 +161,32 @@ const styles = StyleSheet.create({
     },
     historyLabel: {
         color: COLORS.textMuted,
-        fontSize: s(9, 11, 14),
+        fontSize: s(12, 14, 18),
         fontWeight: '700',
         marginBottom: s(2, 4, 6)
-    },
-    historyValue: {
-        color: COLORS.textWhite,
-        fontSize: s(16, 20, 28),
-        fontWeight: '900'
     },
     footerDivider: {
         width: 1,
         backgroundColor: 'rgba(255,255,255,0.1)'
+    },
+
+    iconMargin: {
+        marginBottom: s(4, 6, 8)
+    },
+    historyValueGold: {
+        color: COLORS.gold,
+        fontSize: s(20, 25, 30),
+        fontWeight: '900'
+    },
+    historyLabelNeon: {
+        color: COLORS.neonGreen,
+        fontSize: s(12, 14, 18),
+        fontWeight: '700',
+        marginBottom: s(2, 4, 6)
+    },
+    historyValueNeon: {
+        color: COLORS.neonGreen,
+        fontSize: s(20, 25, 30),
+        fontWeight: '900'
     }
 });

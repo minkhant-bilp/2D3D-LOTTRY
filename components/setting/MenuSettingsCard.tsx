@@ -5,12 +5,14 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import useLanguageStore from '@/store/useLanguageStore';
+import useTranslation from '@/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmall = SCREEN_WIDTH < 360;
 const isTablet = SCREEN_WIDTH >= 768;
 
-const s = (small: any, medium: any, tablet: any) => {
+const s = (small: number, medium: number, tablet: number) => {
     if (isTablet) return tablet;
     if (isSmall) return small;
     return medium;
@@ -42,6 +44,7 @@ interface MenuItemProps {
     IconComponent: any;
     iconName: any;
     iconColor: string;
+    iconBgStyle: any;
     hasDivider?: boolean;
     onPress: () => void;
 }
@@ -52,17 +55,14 @@ const MenuItem = ({
     IconComponent,
     iconName,
     iconColor,
+    iconBgStyle,
     hasDivider = true,
     onPress,
 }: MenuItemProps) => {
     const scale = useSharedValue(1);
 
-    const handlePressIn = () => {
-        scale.value = withSpring(0.96, { damping: 15, stiffness: 250 });
-    };
-    const handlePressOut = () => {
-        scale.value = withSpring(1, { damping: 15, stiffness: 250 });
-    };
+    const handlePressIn = () => { scale.value = withSpring(0.96, { damping: 15, stiffness: 250 }); };
+    const handlePressOut = () => { scale.value = withSpring(1, { damping: 15, stiffness: 250 }); };
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
@@ -76,7 +76,7 @@ const MenuItem = ({
             style={[animatedStyle]}
         >
             <View style={styles.menuItemRow}>
-                <View style={[styles.iconWrapper, { backgroundColor: `${iconColor}15` }]}>
+                <View style={[styles.iconWrapper, iconBgStyle]}>
                     <IconComponent name={iconName} size={s(18, 20, 24)} color={iconColor} />
                 </View>
 
@@ -93,44 +93,48 @@ const MenuItem = ({
     );
 };
 
-type Language = 'English' | 'မြန်မာ';
+type LanguageType = 'my' | 'en' | 'th';
+
+const LANGUAGE_DISPLAY = {
+    'en': 'English',
+    'my': 'မြန်မာ',
+    'th': 'Thai'
+};
 
 export default function MenuSettingsCard() {
-    const router = useRouter()
-    const [language, setLanguage] = useState<Language>('မြန်မာ');
+    const router = useRouter();
+    const { lang, setLanguage } = useLanguageStore();
+    const { t } = useTranslation();
     const [showLangModal, setShowLangModal] = useState(false);
 
-    const languages: Language[] = ['English', 'မြန်မာ'];
+    const languages: LanguageType[] = ['en', 'my', 'th'];
 
-    function openLanguageModal() {
-        setShowLangModal(true);
-    }
+    function openLanguageModal() { setShowLangModal(true); }
+    function closeLanguageModal() { setShowLangModal(false); }
 
-    function closeLanguageModal() {
-        setShowLangModal(false);
-    }
-
-    function chooseLanguage(lang: Language) {
-        setLanguage(lang);
+    function chooseLanguage(selectedLang: LanguageType) {
+        setLanguage(selectedLang);
         setShowLangModal(false);
     }
 
     return (
         <View style={styles.cardContainer}>
             <MenuItem
-                title="အသိပေးချက်များ"
+                title={t.notifications || 'အသိပေးချက်များ'}
                 IconComponent={MaterialCommunityIcons}
                 iconName="email-open-outline"
                 iconColor={THEME.pinkGlow}
+                iconBgStyle={styles.iconBgPink}
                 onPress={() => router.navigate("/wallet-profile/ad")}
             />
 
             <MenuItem
-                title="ဘာသာစကားပြောင်းလဲမှု"
-                rightText={language}
+                title={t.changeLanguage || 'ဘာသာစကားပြောင်းလဲမှု'}
+                rightText={LANGUAGE_DISPLAY[lang]}
                 IconComponent={Ionicons}
                 iconName="globe-outline"
                 iconColor={THEME.redGlow}
+                iconBgStyle={styles.iconBgRed}
                 hasDivider={false}
                 onPress={openLanguageModal}
             />
@@ -142,23 +146,23 @@ export default function MenuSettingsCard() {
                 onRequestClose={closeLanguageModal}
             >
                 <Pressable style={styles.backdrop} onPress={closeLanguageModal}>
-                    <Pressable style={styles.modalCard} onPress={() => { }}>
+                    <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Choose Language</Text>
+                            <Text style={styles.modalTitle}>{t.chooseLanguageTitle || 'Choose Language'}</Text>
                             <Pressable onPress={closeLanguageModal} hitSlop={10}>
                                 <Ionicons name="close" size={s(18, 20, 26)} color={THEME.textMuted} />
                             </Pressable>
                         </View>
 
-                        <Text style={styles.modalSub}>Select one language</Text>
+                        <Text style={styles.modalSub}>{t.selectOneLanguage || 'Select one language'}</Text>
 
                         <View style={styles.langList}>
-                            {languages.map((lang) => {
-                                const active = lang === language;
+                            {languages.map((l) => {
+                                const active = l === lang;
                                 return (
                                     <Pressable
-                                        key={lang}
-                                        onPress={() => chooseLanguage(lang)}
+                                        key={l}
+                                        onPress={() => chooseLanguage(l)}
                                         style={[
                                             styles.langRow,
                                             active && styles.langRowActive,
@@ -166,7 +170,7 @@ export default function MenuSettingsCard() {
                                     >
                                         <View style={[styles.langDot, active && styles.langDotActive]} />
                                         <Text style={[styles.langText, active && styles.langTextActive]}>
-                                            {lang}
+                                            {LANGUAGE_DISPLAY[l]}
                                         </Text>
 
                                         {active ? (
@@ -181,7 +185,7 @@ export default function MenuSettingsCard() {
 
                         <View style={styles.modalFooter}>
                             <Pressable style={styles.cancelBtn} onPress={closeLanguageModal}>
-                                <Text style={styles.cancelText}>Cancel</Text>
+                                <Text style={styles.cancelText}>{t.cancel || 'Cancel'}</Text>
                             </Pressable>
                         </View>
                     </Pressable>
@@ -201,12 +205,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: THEME.cardBorder,
         ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 5,
-            },
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
             android: { elevation: 4 },
         }),
     },
@@ -224,6 +223,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginRight: s(10, 14, 18),
     },
+
+    iconBgPink: { backgroundColor: 'rgba(255, 45, 85, 0.15)' },
+    iconBgRed: { backgroundColor: 'rgba(255, 59, 48, 0.15)' },
+
     menuTitle: {
         flex: 1,
         color: THEME.textWhite,
@@ -239,7 +242,6 @@ const styles = StyleSheet.create({
         fontSize: s(11, 13, 15),
         marginRight: s(6, 8, 12)
     },
-
     divider: {
         height: 1,
         backgroundColor: THEME.divider,
@@ -259,12 +261,7 @@ const styles = StyleSheet.create({
         borderColor: THEME.modalBorder,
         padding: s(12, 14, 20),
         ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.35,
-                shadowRadius: 18,
-            },
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 18 },
             android: { elevation: 8 },
         }),
     },
@@ -301,7 +298,7 @@ const styles = StyleSheet.create({
         borderBottomColor: THEME.divider,
     },
     langRowActive: {
-        backgroundColor: 'rgba(0,230,118,0.08)',
+        backgroundColor: 'rgba(0, 230, 118, 0.08)',
     },
     langDot: {
         width: s(8, 10, 12),

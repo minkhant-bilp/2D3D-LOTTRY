@@ -2,16 +2,17 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import useTranslation from '@/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmall = SCREEN_WIDTH < 360;
 const isTablet = SCREEN_WIDTH >= 768;
 
-const s = (small: any, medium: any, tablet: any) => {
+function s<T>(small: T, medium: T, tablet: T): T {
     if (isTablet) return tablet;
     if (isSmall) return small;
     return medium;
-};
+}
 
 const THEME = {
     bg: '#050A1F',
@@ -30,7 +31,6 @@ interface NotiRecord {
     isRead: boolean;
 }
 
-// 🚨 မူလ Data
 const INITIAL_NOTI_DATA: NotiRecord[] = [
     {
         id: '1',
@@ -57,7 +57,7 @@ const INITIAL_NOTI_DATA: NotiRecord[] = [
 
 export default function NotificationScreen() {
     const router = useRouter();
-
+    const { t } = useTranslation();
     const [notiList, setNotiList] = useState<NotiRecord[]>(INITIAL_NOTI_DATA);
 
     const markAsRead = (id: string) => {
@@ -81,13 +81,12 @@ export default function NotificationScreen() {
         return (
             <Pressable
                 style={[styles.card, { borderColor: cardBorderColor, backgroundColor: cardBgColor }]}
-                onPress={() => markAsRead(item.id)} // 🚨 နှိပ်လိုက်လျှင် ဖတ်ပြီးသားအဖြစ် ပြောင်းမည် 🚨
+                onPress={() => markAsRead(item.id)}
             >
-
                 {!item.isRead && <View style={styles.unreadDot} />}
 
                 <View style={styles.iconBox}>
-                    <Ionicons name={iconName} size={s(20, 24, 30)} color={iconColor} />
+                    <Ionicons name={iconName} size={Number(s(20, 24, 30))} color={iconColor} />
                 </View>
 
                 <View style={styles.textContainer}>
@@ -101,7 +100,6 @@ export default function NotificationScreen() {
                         {item.message}
                     </Text>
                 </View>
-
             </Pressable>
         );
     };
@@ -110,9 +108,9 @@ export default function NotificationScreen() {
         <View style={styles.screen}>
             <View style={styles.header}>
                 <Pressable onPress={() => router.back()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={s(20, 24, 30)} color={THEME.text} />
+                    <Ionicons name="chevron-back" size={Number(s(20, 24, 30))} color={THEME.text} />
                 </Pressable>
-                <Text style={styles.headerTitle}>အသိပေးချက်များ</Text>
+                <Text style={styles.headerTitle}>{t.notificationsTitle || 'အသိပေးချက်များ'}</Text>
                 <View style={styles.placeholderBtn} />
             </View>
 
@@ -120,11 +118,11 @@ export default function NotificationScreen() {
                 {isEmpty ? (
                     <View style={styles.emptyContainer}>
                         <View style={styles.emptyIconBox}>
-                            <Ionicons name="notifications-off-outline" size={s(40, 48, 60)} color={THEME.muted} />
+                            <Ionicons name="notifications-off-outline" size={Number(s(40, 48, 60))} color={THEME.muted} />
                         </View>
-                        <Text style={styles.emptyTitle}>အသိပေးချက် မရှိသေးပါ</Text>
+                        <Text style={styles.emptyTitle}>{t.noNotifications || 'အသိပေးချက် မရှိသေးပါ'}</Text>
                         <Text style={styles.emptySubtext}>
-                            သင့်ထံသို့ ပေးပို့ထားသော အသိပေးစာများ မရှိသေးပါ။ အသစ်ရောက်လာပါက ဤနေရာတွင် ပြသပေးပါမည်။
+                            {t.noNotificationsDesc || 'သင့်ထံသို့ ပေးပို့ထားသော အသိပေးစာများ မရှိသေးပါ။ အသစ်ရောက်လာပါက ဤနေရာတွင် ပြသပေးပါမည်။'}
                         </Text>
                     </View>
                 ) : (
@@ -150,17 +148,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: s(15, 20, 30),
-        paddingTop: s(40, 50, 70),
-        paddingBottom: s(15, 20, 30),
+        paddingHorizontal: Number(s(15, 20, 30)),
+        paddingTop: Number(s(40, 50, 70)),
+        paddingBottom: Number(s(15, 20, 30)),
         backgroundColor: THEME.bg,
         borderBottomWidth: 1,
         borderBottomColor: THEME.border,
     },
     backBtn: {
-        width: s(38, 44, 54),
-        height: s(38, 44, 54),
-        borderRadius: s(12, 14, 18),
+        width: Number(s(38, 44, 54)),
+        height: Number(s(38, 44, 54)),
+        borderRadius: Number(s(12, 14, 18)),
         backgroundColor: THEME.card,
         borderWidth: 1,
         borderColor: THEME.border,
@@ -169,73 +167,73 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         color: THEME.text,
-        fontSize: s(18, 20, 26),
+        fontSize: Number(s(18, 20, 26)),
         fontWeight: 'bold',
     },
-    placeholderBtn: { width: s(38, 44, 54) },
+    placeholderBtn: { width: Number(s(38, 44, 54)) },
 
     listContainer: { flex: 1 },
     listContent: {
-        padding: s(15, 20, 30),
-        paddingBottom: s(30, 40, 60),
+        padding: Number(s(15, 20, 30)),
+        paddingBottom: Number(s(30, 40, 60)),
     },
 
     emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: s(20, 30, 50),
-        marginTop: s(-140, -180, -220),
+        paddingHorizontal: Number(s(20, 30, 50)),
+        marginTop: Number(s(-140, -180, -220)),
     },
     emptyIconBox: {
-        width: s(80, 100, 140),
-        height: s(80, 100, 140),
-        borderRadius: s(40, 50, 70),
+        width: Number(s(80, 100, 140)),
+        height: Number(s(80, 100, 140)),
+        borderRadius: Number(s(40, 50, 70)),
         backgroundColor: THEME.card,
         borderWidth: 1,
         borderColor: THEME.border,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: s(15, 20, 30),
+        marginBottom: Number(s(15, 20, 30)),
     },
     emptyTitle: {
         color: THEME.text,
-        fontSize: s(16, 18, 24),
+        fontSize: Number(s(16, 18, 24)),
         fontWeight: 'bold',
-        marginBottom: s(6, 8, 12),
+        marginBottom: Number(s(6, 8, 12)),
     },
     emptySubtext: {
         color: THEME.muted,
-        fontSize: s(13, 14, 18),
+        fontSize: Number(s(13, 14, 18)),
         textAlign: 'center',
-        lineHeight: s(20, 22, 28),
+        lineHeight: Number(s(20, 22, 28)),
     },
 
     card: {
         flexDirection: 'row',
-        borderRadius: s(16, 20, 24),
-        padding: s(14, 16, 20),
-        marginBottom: s(10, 12, 16),
+        borderRadius: Number(s(16, 20, 24)),
+        padding: Number(s(14, 16, 20)),
+        marginBottom: Number(s(10, 12, 16)),
         borderWidth: 1,
         alignItems: 'center',
     },
     unreadDot: {
         position: 'absolute',
-        top: s(12, 16, 20),
-        right: s(12, 16, 20),
-        width: s(6, 8, 10),
-        height: s(6, 8, 10),
-        borderRadius: s(3, 4, 5),
+        top: Number(s(12, 16, 20)),
+        right: Number(s(12, 16, 20)),
+        width: Number(s(6, 8, 10)),
+        height: Number(s(6, 8, 10)),
+        borderRadius: Number(s(3, 4, 5)),
         backgroundColor: THEME.neon,
     },
     iconBox: {
-        width: s(40, 50, 65),
-        height: s(40, 50, 65),
-        borderRadius: s(12, 16, 20),
+        width: Number(s(40, 50, 65)),
+        height: Number(s(40, 50, 65)),
+        borderRadius: Number(s(12, 16, 20)),
         backgroundColor: 'rgba(255,255,255,0.05)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: s(10, 14, 18),
+        marginRight: Number(s(10, 14, 18)),
     },
     textContainer: {
         flex: 1,
@@ -245,22 +243,22 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: s(4, 6, 8),
-        paddingRight: s(6, 10, 14),
+        marginBottom: Number(s(4, 6, 8)),
+        paddingRight: Number(s(6, 10, 14)),
     },
     titleText: {
         flex: 1,
-        fontSize: s(13, 15, 18),
+        fontSize: Number(s(13, 15, 18)),
         fontWeight: 'bold',
-        marginRight: s(6, 8, 12),
+        marginRight: Number(s(6, 8, 12)),
     },
     timeText: {
         color: THEME.muted,
-        fontSize: s(9, 11, 13),
+        fontSize: Number(s(9, 11, 13)),
     },
     messageText: {
         color: THEME.muted,
-        fontSize: s(11, 13, 16),
-        lineHeight: s(18, 20, 26),
+        fontSize: Number(s(11, 13, 16)),
+        lineHeight: Number(s(18, 20, 26)),
     },
 });

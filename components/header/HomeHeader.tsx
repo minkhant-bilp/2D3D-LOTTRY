@@ -4,12 +4,13 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import useTranslation from '@/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmall = SCREEN_WIDTH < 360;
 const isTablet = SCREEN_WIDTH >= 768;
 
-const s = (small: any, medium: any, tablet: any) => {
+const s = (small: number, medium: number, tablet: number) => {
     if (isTablet) return tablet;
     if (isSmall) return small;
     return medium;
@@ -25,9 +26,12 @@ export const GLOBAL_THEME = {
     notiRed: '#FF3B30'
 };
 
+const PROFILE_IMAGE_SOURCE = { uri: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' };
+
 export function HomeHeader() {
-    const router = useRouter()
+    const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
 
     return (
         <View style={[
@@ -38,12 +42,12 @@ export function HomeHeader() {
             <Pressable style={styles.leftSection} onPress={() => console.log('Profile Pressed')}>
                 <View style={styles.profileRing}>
                     <Image
-                        source={{ uri: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' }}
+                        source={PROFILE_IMAGE_SOURCE}
                         style={styles.profileImage}
                     />
                 </View>
                 <View style={styles.userInfo}>
-                    <Text style={styles.greetingText}>မင်္ဂလာပါ,</Text>
+                    <Text style={styles.greetingText}>{t.greeting}</Text>
                     <Text style={styles.userName}>Aung Kyaw <MaterialCommunityIcons name="check-decagram" size={s(12, 14, 18)} color={GLOBAL_THEME.gold} /></Text>
                 </View>
             </Pressable>

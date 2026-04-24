@@ -8,12 +8,13 @@ import Animated, {
     useSharedValue,
     withSpring,
 } from 'react-native-reanimated';
+import useTranslation from '@/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmall = SCREEN_WIDTH < 360;
 const isTablet = SCREEN_WIDTH >= 768;
 
-const s = (small: any, medium: any, tablet: any) => {
+const s = (small: number, medium: number, tablet: number) => {
     if (isTablet) return tablet;
     if (isSmall) return small;
     return medium;
@@ -38,10 +39,11 @@ interface ActionCardProps {
     iconName: any;
     IconComponent: any;
     iconColor: string;
+    iconWrapperStyle: any;
     onPress: () => void;
 }
 
-const ActionCard = ({ title, subtitle, iconName, IconComponent, iconColor, onPress }: ActionCardProps) => {
+const ActionCard = ({ title, subtitle, iconName, IconComponent, iconColor, iconWrapperStyle, onPress }: ActionCardProps) => {
     const scale = useSharedValue(1);
 
     const handlePressIn = () => { scale.value = withSpring(0.92, { damping: 12, stiffness: 200 }); };
@@ -58,7 +60,7 @@ const ActionCard = ({ title, subtitle, iconName, IconComponent, iconColor, onPre
             onPressOut={handlePressOut}
             style={[styles.card, animatedStyle]}
         >
-            <View style={[styles.iconWrapper, { backgroundColor: `${iconColor}15` }]}>
+            <View style={iconWrapperStyle}>
                 <IconComponent name={iconName} size={s(18, 22, 28)} color={iconColor} />
             </View>
 
@@ -71,44 +73,50 @@ const ActionCard = ({ title, subtitle, iconName, IconComponent, iconColor, onPre
 };
 
 export default function ActionGrid() {
-    const router = useRouter()
+    const router = useRouter();
+    const { t } = useTranslation();
+
     return (
         <View style={styles.gridContainer}>
 
             <View style={styles.row}>
                 <ActionCard
-                    title="အလောင်းအစား"
-                    subtitle="ကျွန်ုပ်၏အလောင်းအစား မှတ်တမ်း"
+                    title={t.betting || 'Betting'}
+                    subtitle={t.bettingHistory || 'My betting history'}
                     IconComponent={MaterialCommunityIcons}
                     iconName="file-document-outline"
                     iconColor={THEME.blueGlow}
+                    iconWrapperStyle={styles.iconWrapperBlue}
                     onPress={() => router.navigate("/gambling/gambling-history")}
                 />
                 <ActionCard
-                    title="ငွေစာရင်း မှတ်တမ်း"
-                    subtitle="ကျွန်ုပ်၏ငွေစာရင်း မှတ်တမ်း"
+                    title={t.transaction || 'Transaction'}
+                    subtitle={t.transactionHistory || 'My transaction history'}
                     IconComponent={MaterialCommunityIcons}
                     iconName="swap-horizontal"
                     iconColor={THEME.neonGreen}
+                    iconWrapperStyle={styles.iconWrapperGreen}
                     onPress={() => router.navigate("/gambling/transaction-record")}
                 />
             </View>
 
             <View style={styles.row}>
                 <ActionCard
-                    title="ထီမှတ်တမ်း"
-                    subtitle="ကျွန်ုပ်၏ ထီမှတ်တမ်း"
+                    title={t.lottery || 'Lottery History'}
+                    subtitle={t.lotteryHistory || 'My lottery history'}
                     IconComponent={MaterialCommunityIcons}
                     iconName="cash-plus"
                     iconColor={THEME.redGlow}
+                    iconWrapperStyle={styles.iconWrapperRed}
                     onPress={() => router.navigate("/gambling/despoit-history")}
                 />
                 <ActionCard
-                    title="ငွေထုတ်"
-                    subtitle="ကျွန်ုပ်၏ ငွေထုတ် မှတ်တမ်း"
+                    title={t.withdraw || 'Withdraw'}
+                    subtitle={t.withdrawHistory || 'My withdrawal history'}
                     IconComponent={Ionicons}
                     iconName="wallet-outline"
                     iconColor={THEME.gold}
+                    iconWrapperStyle={styles.iconWrapperGold}
                     onPress={() => router.navigate("/gambling/withdrawal-history")}
                 />
             </View>
@@ -116,6 +124,15 @@ export default function ActionGrid() {
         </View>
     );
 }
+
+const baseIconWrapper = {
+    width: s(32, 38, 48),
+    height: s(32, 38, 48),
+    borderRadius: s(10, 12, 16),
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: s(8, 10, 14),
+};
 
 const styles = StyleSheet.create({
     gridContainer: {
@@ -138,25 +155,28 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: THEME.cardBorder,
         ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 5,
-            },
-            android: {
-                elevation: 4,
-            },
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
+            android: { elevation: 4 },
         }),
     },
-    iconWrapper: {
-        width: s(32, 38, 48),
-        height: s(32, 38, 48),
-        borderRadius: s(10, 12, 16),
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: s(8, 10, 14),
+
+    iconWrapperBlue: {
+        ...baseIconWrapper,
+        backgroundColor: 'rgba(59, 130, 246, 0.15)',
     },
+    iconWrapperGreen: {
+        ...baseIconWrapper,
+        backgroundColor: 'rgba(0, 230, 118, 0.15)',
+    },
+    iconWrapperRed: {
+        ...baseIconWrapper,
+        backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    },
+    iconWrapperGold: {
+        ...baseIconWrapper,
+        backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    },
+
     textWrapper: {
         flex: 1,
     },

@@ -2,12 +2,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import useTranslation from '@/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmall = SCREEN_WIDTH < 360;
 const isTablet = SCREEN_WIDTH >= 768;
 
-const s = (small: any, medium: any, tablet: any) => {
+const s = (small: number, medium: number, tablet: number) => {
   if (isTablet) return tablet;
   if (isSmall) return small;
   return medium;
@@ -24,7 +25,7 @@ const THEME = {
 };
 
 interface ResultType {
-  period: string;
+  periodKey: 'morning' | 'afternoon' | 'evening';
   time: string;
   number: string;
 }
@@ -40,43 +41,43 @@ const HISTORY_DATA: HistoryItemType[] = [
     id: '1',
     date: '5 March 2026',
     results: [
-      { period: 'မနက်', time: '12:01 PM', number: '45' },
-      { period: 'နေ့လည်', time: '02:30 PM', number: '92' },
-      { period: 'ညနေ', time: '04:30 PM', number: '18' },
+      { periodKey: 'morning', time: '12:01 PM', number: '45' },
+      { periodKey: 'afternoon', time: '02:30 PM', number: '92' },
+      { periodKey: 'evening', time: '04:30 PM', number: '18' },
     ],
   },
   {
     id: '2',
     date: '4 March 2026',
     results: [
-      { period: 'မနက်', time: '12:01 PM', number: '11' },
-      { period: 'နေ့လည်', time: '02:30 PM', number: '34' },
-      { period: 'ညနေ', time: '04:30 PM', number: '78' },
+      { periodKey: 'morning', time: '12:01 PM', number: '11' },
+      { periodKey: 'afternoon', time: '02:30 PM', number: '34' },
+      { periodKey: 'evening', time: '04:30 PM', number: '78' },
     ],
   },
   {
     id: '3',
     date: '3 March 2026',
     results: [
-      { period: 'မနက်', time: '12:01 PM', number: '05' },
-      { period: 'နေ့လည်', time: '02:30 PM', number: '67' },
-      { period: 'ညနေ', time: '04:30 PM', number: '99' },
+      { periodKey: 'morning', time: '12:01 PM', number: '05' },
+      { periodKey: 'afternoon', time: '02:30 PM', number: '67' },
+      { periodKey: 'evening', time: '04:30 PM', number: '99' },
     ],
   },
 ];
 
-const DayCard = ({ item }: { item: HistoryItemType }) => {
+const DayCard = ({ item, getTranslatedPeriod }: { item: HistoryItemType, getTranslatedPeriod: (key: string) => string }) => {
   return (
     <View style={styles.card}>
       <View style={styles.dateHeader}>
-        <Ionicons name="calendar-outline" size={s(14, 16, 20)} color={THEME.neon} />
+        <Ionicons name="calendar-outline" size={s(14, 16, 20)} color={THEME.neon} style={styles.iconMarginRight} />
         <Text style={styles.dateText}>{item.date}</Text>
       </View>
 
       <View style={styles.resultsRow}>
         {item.results.map((res, index) => (
           <View key={index} style={styles.resultBox}>
-            <Text style={styles.periodText}>{res.period}</Text>
+            <Text style={styles.periodText}>{getTranslatedPeriod(res.periodKey)}</Text>
             <Text style={styles.timeText}>{res.time}</Text>
             <Text style={styles.numberText}>{res.number}</Text>
           </View>
@@ -88,15 +89,33 @@ const DayCard = ({ item }: { item: HistoryItemType }) => {
 
 export default function LotteryHistory() {
   const router = useRouter();
+  const { t } = useTranslation();
+
+  const handleBackPress = () => {
+    router.back();
+  };
+
+  const getTranslatedPeriod = (key: string) => {
+    if (key === 'morning') return t.morning || 'Morning';
+    if (key === 'afternoon') return t.afternoon || 'Afternoon';
+    if (key === 'evening') return t.evening || 'Evening';
+    return key;
+  };
+
+  const renderHistoryItem = ({ item }: { item: HistoryItemType }) => (
+    <DayCard item={item} getTranslatedPeriod={getTranslatedPeriod} />
+  );
+
+  const keyExtractor = (item: HistoryItemType) => item.id;
 
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+        <Pressable onPress={handleBackPress} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={s(20, 24, 30)} color={THEME.text} />
         </Pressable>
 
-        <Text style={styles.headerTitle}>ထွက်ဂဏန်းမှတ်တမ်း</Text>
+        <Text style={styles.headerTitle}>{t.historyTitle || 'Lottery History'}</Text>
 
         <View style={styles.placeholderBtn} />
       </View>
@@ -104,10 +123,14 @@ export default function LotteryHistory() {
       <View style={styles.listContainer}>
         <FlatList
           data={HISTORY_DATA}
-          renderItem={({ item }) => <DayCard item={item} />}
-          keyExtractor={(item) => item.id}
+          renderItem={renderHistoryItem}
+          keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          initialNumToRender={4}
         />
       </View>
     </View>
@@ -167,7 +190,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: s(12, 16, 20),
-    gap: s(6, 8, 12),
+  },
+  iconMarginRight: {
+    marginRight: s(6, 8, 12),
   },
   dateText: {
     color: THEME.text,
@@ -177,7 +202,6 @@ const styles = StyleSheet.create({
   resultsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: s(8, 10, 16),
   },
   resultBox: {
     flex: 1,
@@ -187,6 +211,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.02)',
+    marginHorizontal: s(4, 5, 8),
   },
   periodText: {
     color: THEME.muted,

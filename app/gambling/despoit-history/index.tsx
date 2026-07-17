@@ -120,7 +120,7 @@ const LottoCard = ({ item }: { item: LottoRecord }) => {
                 {isFailed && (
                     <Pressable
                         style={styles.contactBtn}
-                        onPress={() => router.navigate("/wallet-profile/help-center")}
+                        onPress={() => router.navigate("/")}
                     >
                         <Ionicons name="headset-outline" size={s(14, 16, 20)} color={THEME.danger} />
                         <Text style={styles.contactBtnText}>Admin ဆက်သွယ်ရန်</Text>

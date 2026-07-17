@@ -1,56 +1,69 @@
 import { create } from 'zustand';
 
-interface BetItem {
-    num: string;
-    amount: string; 
-}
+export type BetNumberRow = { id: string; number: string; amount: string };
 
-interface BetStore {
-    bets: BetItem[];
-    
-    country: 'MM' | 'TH';
+interface BetState {
+    step: number;
+    targetOpenTime: string;
+    betRows: BetNumberRow[];
+    pin: string;
+    walletBalance: number;
+    isTwoDType: boolean;
     currency: string;
-    selectedBankName: string;
-    selectedBankImage: any;
-    selectedBankColor: string;
     
-    setPaymentInfo: (country: 'MM' | 'TH', currency: string, bankName: string, bankImage: any, bankColor: string) => void;
-
-    setInitialBets: (numbers: string[]) => void;
-    updateAmount: (num: string, amount: string) => void;
-    updateAllAmounts: (amount: string) => void;
-    removeBet: (num: string) => void;
-    clearBets: () => void;
+    setStep: (step: number) => void;
+    setTargetOpenTime: (time: string) => void;
+    addBetRow: () => void;
+    removeBetRow: (id: string) => void;
+    updateBetRow: (id: string, field: 'number' | 'amount', value: string) => void;
+    clearBetRows: () => void;
+    setBetRowsBulk: (rows: BetNumberRow[]) => void;
+    setPin: (pin: string) => void;
+    getValidAmountTotal: () => number;
 }
 
-export const useBetStore = create<BetStore>((set) => ({
-    bets: [],
+const generateId = () => Math.random().toString(36).substr(2, 9);
+const createEmptyRow = (): BetNumberRow => ({ id: generateId(), number: '', amount: '' });
+
+export const useBetStore = create<BetState>((set, get) => ({
+    step: 2,
+    targetOpenTime: '12:01:00',
+    betRows: [createEmptyRow()],
+    pin: '',
+    walletBalance: 50000, // Default for UI testing
+    isTwoDType: true,
+    currency: 'MMK',
+
+    setStep: (step) => set({ step }),
+    setTargetOpenTime: (time) => set({ targetOpenTime: time }),
     
-    country: 'MM',
-    currency: 'Ks',
-    selectedBankName: 'KPay',
-    selectedBankImage: null,
-    selectedBankColor: '#00B2FF',
+    addBetRow: () => set((state) => ({ betRows: [...state.betRows, createEmptyRow()] })),
     
-    setPaymentInfo: (country, currency, bankName, bankImage, bankColor) => set({ 
-        country, currency, selectedBankName: bankName, selectedBankImage: bankImage, selectedBankColor: bankColor 
+    removeBetRow: (id) => set((state) => ({ 
+        betRows: state.betRows.filter(row => row.id !== id) 
+    })),
+    
+    updateBetRow: (id, field, value) => set((state) => ({
+        betRows: state.betRows.map(row => row.id === id ? { ...row, [field]: value } : row)
+    })),
+    
+    clearBetRows: () => set({ betRows: [createEmptyRow()] }),
+    
+    setBetRowsBulk: (newRows) => set((state) => {
+        const filled = state.betRows.filter(r => r.number !== '' || r.amount !== '');
+        return { betRows: filled.length > 0 ? [...filled, ...newRows] : newRows };
     }),
 
-    setInitialBets: (numbers) => set(() => ({
-        bets: numbers.map(num => ({ num, amount: '' })) 
-    })),
-    
-    updateAmount: (num, amount) => set((state) => ({
-        bets: state.bets.map(bet => bet.num === num ? { ...bet, amount } : bet)
-    })),
-    
-    updateAllAmounts: (amount) => set((state) => ({
-        bets: state.bets.map(bet => ({ ...bet, amount }))
-    })),
-    
-    removeBet: (num) => set((state) => ({
-        bets: state.bets.filter(bet => bet.num !== num)
-    })),
-    
-    clearBets: () => set({ bets: [] }),
+    setPin: (pin) => set({ pin }),
+
+    getValidAmountTotal: () => {
+        const rows = get().betRows;
+        return rows.reduce((total, row) => {
+            const amt = Number(row.amount);
+            if (/^\d+$/.test(row.amount.trim()) && Number.isInteger(amt) && amt >= 1) {
+                return total + amt;
+            }
+            return total;
+        }, 0);
+    }
 }));

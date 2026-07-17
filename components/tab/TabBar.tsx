@@ -1,10 +1,9 @@
+import useTranslation from '@/hooks/useTranslation';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import useTranslation from '@/hooks/useTranslation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmall = SCREEN_WIDTH < 360;
@@ -89,8 +88,8 @@ export function MyTabBar({ state, descriptors, navigation }: BottomTabBarProps) 
     const getCustomLabel = (routeName: string): string => {
         switch (routeName) {
             case 'index': return t.tabLive || 'Live';
-            case 'explore': return t.tabHistory || 'မှတ်တမ်း';
-            case 'setting': return t.tabWallet || 'ပိုက်ဆံအိတ်';
+            case 'explore': return 'Bet';
+            case 'setting': return 'Setting';
             default: return routeName;
         }
     };
@@ -105,16 +104,17 @@ export function MyTabBar({ state, descriptors, navigation }: BottomTabBarProps) 
                     const customLabel = getCustomLabel(route.name);
 
                     let IconComponent = null;
-                    let iconName = '';
+                    let iconName: any = '';
+
                     if (route.name === 'index') {
                         IconComponent = Ionicons;
                         iconName = 'pulse';
                     } else if (route.name === 'explore') {
-                        IconComponent = MaterialIcons;
-                        iconName = 'receipt-long';
+                        IconComponent = Ionicons;
+                        iconName = 'ticket-outline';
                     } else if (route.name === 'setting') {
                         IconComponent = Ionicons;
-                        iconName = 'wallet';
+                        iconName = 'settings-outline';
                     }
 
                     return (

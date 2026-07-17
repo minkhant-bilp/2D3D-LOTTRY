@@ -34,8 +34,19 @@ function RootNavigator() {
         <Stack>
           {/* <Stack.Protected guard={!!session}> */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name='wallet-profile' options={{ headerShown: false }} />
           <Stack.Screen name='gambling' options={{ headerShown: false }} />
+          <Stack.Screen name="wallet/bank-setup" options={{ headerShown: false }} />
+          <Stack.Screen name="user/profile" options={{ headerShown: false }} />
+          <Stack.Screen name="user/bankinfo" options={{ headerShown: false }} />
+          <Stack.Screen name="noti/notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="bets/twoD" options={{ headerShown: false }} />
+          <Stack.Screen name="bets/threeD" options={{ headerShown: false }} />
+          <Stack.Screen name="wallet-profile" options={{ headerShown: false }} />
+          <Stack.Screen name="withdrawal" options={{ headerShown: false }} />
+          <Stack.Screen name="results/twoDresult" options={{ headerShown: false }} />
+          <Stack.Screen name="user/bank-info" options={{ headerShown: false }} />
+          <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
+
           {/* </Stack.Protected> */}
 
 

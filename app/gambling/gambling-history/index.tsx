@@ -1,244 +1,173 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const isSmall = SCREEN_WIDTH < 360;
-const isTablet = SCREEN_WIDTH >= 768;
-
-const s = (small: any, medium: any, tablet: any) => {
-    if (isTablet) return tablet;
-    if (isSmall) return small;
-    return medium;
-};
-
-const THEME = {
-    bg: '#050A1F',
-    card: '#0B132B',
-    border: 'rgba(255,255,255,0.08)',
-    text: '#FFFFFF',
-    muted: '#8A9BB3',
-    neon: '#00E676',
-
-    color2D: '#00B2FF',
-    color3D: '#FF8A00',
-    colorLotto: '#E11D48',
-};
-
-interface BetRecord {
+type BetNumber = { number: string; amount: number };
+type Bet = {
     id: string;
-    type: '2D' | '3D' | 'ထီ';
-    date: string;
-    drawTime: string;
-    numbers: string[];
-    totalAmount: string;
+    status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'REFUNDED';
+    bet_type: string;
+    total_amount: number;
+    currency: string;
+    bet_numbers: BetNumber[];
+    stock_date: string;
+    target_opentime?: string | null;
+};
+
+const STATUS_CONFIG: Record<Bet['status'], { label: string; bgColor: string; textColor: string; borderColor: string }> = {
+    PENDING: { label: 'Pending', bgColor: 'rgba(245, 158, 11, 0.15)', textColor: '#FCD34D', borderColor: 'rgba(245, 158, 11, 0.25)' },
+    ACCEPTED: { label: 'Accepted', bgColor: 'rgba(0, 230, 118, 0.12)', textColor: '#00e676', borderColor: 'rgba(0, 230, 118, 0.25)' },
+    REJECTED: { label: 'Rejected', bgColor: 'rgba(239, 68, 68, 0.12)', textColor: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.25)' },
+    REFUNDED: { label: 'Refunded', bgColor: 'rgba(59, 130, 246, 0.12)', textColor: '#60A5FA', borderColor: 'rgba(59, 130, 246, 0.25)' },
+};
+
+function formatOpenTime(time: string | null | undefined) {
+    if (!time) return null;
+    const [h, m] = time.split(':');
+    const hour = parseInt(h ?? '0', 10);
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const h12 = hour % 12 || 12;
+    return `${h12}:${m} ${suffix}`;
 }
 
-const BET_HISTORY: BetRecord[] = [
-    {
-        id: '1',
-        type: '2D',
-        date: '6 March 2026',
-        drawTime: '12:01 PM',
-        numbers: ['53', '12', '99', '00'],
-        totalAmount: '4,000 Ks',
-    },
-    {
-        id: '2',
-        type: '3D',
-        date: '16 March 2026',
-        drawTime: '03:30 PM',
-        numbers: ['123', '456'],
-        totalAmount: '2,000 Ks',
-    },
-    {
-        id: '3',
-        type: 'ထီ',
-        date: '1 April 2026',
-        drawTime: '04:00 PM',
-        numbers: ['က - ၁၂၃၄၅၆', 'ခ - ၆၅၄၃၂၁'],
-        totalAmount: '4,000 Ks',
-    }
-];
-
-const BetCard = ({ item }: { item: BetRecord }) => {
-
-    let typeColor = THEME.color2D;
-    if (item.type === '3D') typeColor = THEME.color3D;
-    if (item.type === 'ထီ') typeColor = THEME.colorLotto;
-
-    return (
-        <View style={styles.card}>
-            <View style={styles.cardTop}>
-                <View style={[styles.typeBadge, { backgroundColor: `${typeColor}20`, borderColor: typeColor }]}>
-                    <Text style={[styles.typeText, { color: typeColor }]}>{item.type}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.dateText}>{item.date}</Text>
-                    <Text style={styles.timeText}>{item.drawTime} ပွဲစဉ်</Text>
-                </View>
-            </View>
-
-            <View style={styles.numbersContainer}>
-                {item.numbers.map((num, index) => (
-                    <View key={index} style={styles.numberPill}>
-                        <Text style={styles.numberText}>{num}</Text>
-                    </View>
-                ))}
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.cardBottom}>
-                <Text style={styles.totalLabel}>စုစုပေါင်း ကျသင့်ငွေ</Text>
-                <Text style={styles.totalAmount}>{item.totalAmount}</Text>
-            </View>
-        </View>
-    );
-};
-
-export default function MyBetsHistoryScreen() {
+export default function GamblingHistoryScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
+
+    const [bets, setBets] = useState<Bet[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const load = async () => {
+        setLoading(true);
+        try {
+            setTimeout(() => {
+                setBets([]);
+                setLoading(false);
+            }, 800);
+        } catch {
+            setError('Unable to load bet history. Please try again.');
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        load();
+    }, []);
 
     return (
-        <View style={styles.screen}>
-            <View style={styles.header}>
+        <View style={styles.root}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
                 <Pressable onPress={() => router.back()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={s(20, 24, 30)} color={THEME.text} />
+                    <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
                 </Pressable>
-                <Text style={styles.headerTitle}>ထိုးထားသော မှတ်တမ်း</Text>
-                <View style={styles.placeholderBtn} />
+                <View style={styles.headerTextContainer}>
+                    <Text style={styles.eyebrow}>လုပ်ဆောင်မှု</Text>
+                    <Text style={styles.title}>လောင်းကြေးမှတ်တမ်း</Text>
+                    <Text style={styles.desc}>သင့်ယခင်လောင်းကြေးများ၊ ရလဒ်နှင့် ငွေပေးချေမှု အခြေအနေ</Text>
+                </View>
             </View>
 
-            <View style={styles.listContainer}>
-                <FlatList
-                    data={BET_HISTORY}
-                    renderItem={({ item }) => <BetCard item={item} />}
-                    keyExtractor={(item) => item.id}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.listContent}
-                />
-            </View>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                {loading ? (
+                    <ActivityIndicator size="large" color="#00e676" style={{ marginTop: 60 }} />
+                ) : error ? (
+                    <View style={styles.emptyState}>
+                        <Text style={[styles.emptyDesc, { color: '#EF4444' }]}>{error}</Text>
+                    </View>
+                ) : bets.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <View style={styles.emptyIconWrapper}>
+                            <MaterialIcons name="inbox" size={32} color="#374151" style={styles.emptyIcon} />
+                        </View>
+                        <Text style={styles.emptyTitle}>No data here</Text>
+                        <Text style={styles.emptyDesc}>
+                            လောင်းကြေး မရှိသေးပါ။ ပထမဆုံး{'\n'}လောင်းကြေးလုပ်ရန် Bets tab သို့ သွားပါ
+                        </Text>
+                    </View>
+                ) : (
+                    <View style={styles.listContainer}>
+                        {bets.map((bet) => {
+                            const status = STATUS_CONFIG[bet.status];
+                            return (
+                                <View key={bet.id} style={styles.listItem}>
+                                    <View style={styles.itemHeader}>
+                                        <View style={styles.betTypeBadge}>
+                                            <Text style={styles.betTypeText}>{bet.bet_type}</Text>
+                                        </View>
+                                        <View style={[styles.statusBadge, { backgroundColor: status.bgColor, borderColor: status.borderColor }]}>
+                                            <Text style={[styles.statusText, { color: status.textColor }]}>{status.label}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.amountContainer}>
+                                        <Text style={styles.wagerLabel}>TOTAL WAGER</Text>
+                                        <Text style={styles.wagerAmount}>
+                                            {bet.total_amount} <Text style={styles.wagerCurrency}>{bet.currency}</Text>
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.numbersGrid}>
+                                        {bet.bet_numbers.map((n, i) => (
+                                            <View key={i} style={styles.numberBadge}>
+                                                <Text style={styles.numberText}>{String(n.number).padStart(2, '0')}</Text>
+                                                <Text style={styles.numberAmount}>× {n.amount}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+
+                                    <View style={styles.metaRow}>
+                                        <Text style={styles.metaDate}>{bet.stock_date}</Text>
+                                        {formatOpenTime(bet.target_opentime) && (
+                                            <View style={styles.timeBadge}>
+                                                <MaterialIcons name="schedule" size={14} color="#00e676" />
+                                                <Text style={styles.timeText}>{formatOpenTime(bet.target_opentime)}</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            );
+                        })}
+                    </View>
+                )}
+            </ScrollView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: {
-        flex: 1,
-        backgroundColor: THEME.bg,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: s(15, 20, 30),
-        paddingTop: s(40, 50, 70),
-        paddingBottom: s(15, 20, 30),
-        backgroundColor: THEME.bg,
-        borderBottomWidth: 1,
-        borderBottomColor: THEME.border,
-    },
-    backBtn: {
-        width: s(38, 44, 54),
-        height: s(38, 44, 54),
-        borderRadius: s(12, 14, 18),
-        backgroundColor: THEME.card,
-        borderWidth: 1,
-        borderColor: THEME.border,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: {
-        color: THEME.text,
-        fontSize: s(16, 18, 24),
-        fontWeight: 'bold',
-    },
-    placeholderBtn: { width: s(38, 44, 54) },
-
-    listContainer: { flex: 1 },
-    listContent: {
-        padding: s(15, 20, 30),
-        paddingBottom: s(30, 40, 60),
-    },
-
-    card: {
-        backgroundColor: THEME.card,
-        borderRadius: s(16, 20, 24),
-        padding: s(14, 18, 24),
-        marginBottom: s(12, 16, 22),
-        borderWidth: 1,
-        borderColor: THEME.border,
-    },
-    cardTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: s(12, 16, 20),
-    },
-
-    typeBadge: {
-        paddingHorizontal: s(10, 12, 16),
-        paddingVertical: s(4, 6, 8),
-        borderRadius: s(8, 10, 14),
-        borderWidth: 1,
-    },
-    typeText: {
-        fontSize: s(12, 14, 16),
-        fontWeight: '900',
-    },
-
-    dateText: {
-        color: THEME.text,
-        fontSize: s(11, 13, 15),
-        fontWeight: 'bold',
-        marginBottom: s(2, 2, 4),
-    },
-    timeText: {
-        color: THEME.muted,
-        fontSize: s(10, 11, 13),
-    },
-
-    numbersContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: s(6, 10, 14),
-    },
-    numberPill: {
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        paddingHorizontal: s(12, 16, 22),
-        paddingVertical: s(8, 10, 14),
-        borderRadius: s(10, 12, 16),
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    numberText: {
-        color: THEME.neon,
-        fontSize: s(16, 18, 24),
-        fontWeight: '900',
-        letterSpacing: 1,
-    },
-
-    divider: {
-        height: 1,
-        backgroundColor: THEME.border,
-        marginVertical: s(12, 16, 20),
-    },
-
-    cardBottom: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    totalLabel: {
-        color: THEME.muted,
-        fontSize: s(11, 13, 15),
-        fontWeight: '600',
-    },
-    totalAmount: {
-        color: THEME.text,
-        fontSize: s(16, 18, 24),
-        fontWeight: 'bold',
-    },
+    root: { flex: 1, backgroundColor: '#050A1F' },
+    header: { flexDirection: 'row', paddingHorizontal: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    backBtn: { marginRight: 16, paddingTop: 6 },
+    headerTextContainer: { flex: 1 },
+    eyebrow: { color: '#93C5FD', fontSize: 11, fontWeight: 'bold', letterSpacing: 1.5, marginBottom: 6 },
+    title: { color: '#F7F9FF', fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
+    desc: { color: '#8A9BB3', fontSize: 13, lineHeight: 20 },
+    scrollContent: { padding: 20, paddingBottom: 40 },
+    emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80, paddingHorizontal: 20 },
+    emptyIconWrapper: { marginBottom: 16 },
+    emptyIcon: { opacity: 0.8 },
+    emptyTitle: { color: '#6B7280', fontSize: 15, fontWeight: 'bold', marginBottom: 12 },
+    emptyDesc: { color: '#4B5563', fontSize: 13, textAlign: 'center', lineHeight: 22 },
+    listContainer: { gap: 12 },
+    listItem: { backgroundColor: 'rgba(11, 19, 43, 0.94)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 16 },
+    itemHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    betTypeBadge: { backgroundColor: 'rgba(255, 255, 255, 0.05)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    betTypeText: { color: '#F7F9FF', fontSize: 10, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
+    statusBadge: { borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    statusText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
+    amountContainer: { marginBottom: 12 },
+    wagerLabel: { color: '#8A9BB3', fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginBottom: 2 },
+    wagerAmount: { color: '#F7F9FF', fontSize: 18, fontWeight: 'bold' },
+    wagerCurrency: { color: '#8A9BB3', fontSize: 12, fontWeight: 'normal' },
+    numbersGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+    numberBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 4 },
+    numberText: { color: '#E2E8F0', fontSize: 12, fontWeight: 'bold' },
+    numberAmount: { color: '#8A9BB3', fontSize: 12 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+    metaDate: { color: '#8A9BB3', fontSize: 11 },
+    timeBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0, 230, 118, 0.1)', borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, gap: 4 },
+    timeText: { color: '#00e676', fontSize: 11, fontWeight: 'bold' },
 });

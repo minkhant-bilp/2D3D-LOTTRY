@@ -1,5 +1,5 @@
-import { HomeHeader } from '@/components/header/HomeHeader';
-import { LiveNumberCard } from '@/components/livenumber/LiveNumberCard';
+import HomeHeader from '@/components/header/HomeHeader';
+import LiveNumberCard from '@/components/livenumber/LiveNumberCard';
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

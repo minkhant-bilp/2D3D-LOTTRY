@@ -1,152 +1,142 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import useTranslation from '@/hooks/useTranslation';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const isSmall = SCREEN_WIDTH < 360;
-const isTablet = SCREEN_WIDTH >= 768;
-
-const s = (small: number, medium: number, tablet: number) => {
-    if (isTablet) return tablet;
-    if (isSmall) return small;
-    return medium;
-};
-
-export const GLOBAL_THEME = {
-    screenBg: '#050A1F',
-    headerBg: '#0B132B',
-    textPrimary: '#FFFFFF',
-    textSecondary: '#8A9BB3',
-    neonGreen: '#00E676',
-    gold: '#FFD700',
-    notiRed: '#FF3B30'
-};
-
-const PROFILE_IMAGE_SOURCE = { uri: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' };
-
-export function HomeHeader() {
+export default function HomeHeader() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
-    const { t } = useTranslation();
+
+    const displayName = "Min Khant";
+    const avatarText = "MK";
+    const balanceText = "MMK 50,000";
+    const unreadCount = 3;
 
     return (
-        <View style={[
-            styles.headerContainer,
-            { paddingTop: insets.top > 0 ? insets.top + 5 : s(15, 20, 30) }
-        ]}>
-
-            <Pressable style={styles.leftSection} onPress={() => console.log('Profile Pressed')}>
-                <View style={styles.profileRing}>
-                    <Image
-                        source={PROFILE_IMAGE_SOURCE}
-                        style={styles.profileImage}
-                    />
-                </View>
-                <View style={styles.userInfo}>
-                    <Text style={styles.greetingText}>{t.greeting}</Text>
-                    <Text style={styles.userName}>Aung Kyaw <MaterialCommunityIcons name="check-decagram" size={s(12, 14, 18)} color={GLOBAL_THEME.gold} /></Text>
-                </View>
-            </Pressable>
-
-            <View style={styles.rightSection}>
-
+        <View style={styles.header}>
+            <View style={styles.leftSection}>
                 <Pressable
-                    style={({ pressed }) => [styles.iconBtn, pressed && styles.iconPressed]}
-                    onPress={() => router.navigate("/wallet-profile/ad")}
+                    style={styles.avatarButton}
+                    onPress={() => router.push('/user/profile')}
                 >
-                    <View>
-                        <Ionicons name="notifications-outline" size={s(22, 26, 32)} color={GLOBAL_THEME.textPrimary} />
-                        <View style={styles.notiBadge} />
-                    </View>
+                    <Text style={styles.avatarText}>{avatarText}</Text>
                 </Pressable>
 
+                <View style={styles.userInfo}>
+                    <Text style={styles.userName} numberOfLines={1}>
+                        {displayName}
+                    </Text>
+                    <View style={styles.balanceContainer}>
+                        <MaterialIcons name="account-balance-wallet" size={13} color="#51e1a5" />
+                        <Text style={styles.balanceText}>{balanceText}</Text>
+                    </View>
+                </View>
             </View>
 
+            <Pressable
+                style={({ pressed }) => [
+                    styles.notificationButton,
+                    pressed && styles.notificationButtonPressed
+                ]}
+                onPress={() => router.push('/noti/notifications')}
+            >
+                <MaterialIcons name="notifications" size={22} color="#51e1a5" />
+                {unreadCount > 0 && (
+                    <View style={styles.badge}>
+                        <Text style={styles.badgeText}>
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                        </Text>
+                    </View>
+                )}
+            </Pressable>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    headerContainer: {
-        backgroundColor: GLOBAL_THEME.headerBg,
+    header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: s(12, 16, 24),
-        paddingBottom: s(12, 15, 20),
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        backgroundColor: '#0c1324',
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-        marginTop: s(-8, -10, -14),
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 5,
-            },
-            android: {
-                elevation: 5,
-            },
-        }),
+        shadowColor: '#070d1f',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.6,
+        shadowRadius: 32,
+        elevation: 8,
+        zIndex: 50,
     },
     leftSection: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    profileRing: {
-        width: s(38, 44, 54),
-        height: s(38, 44, 54),
-        borderRadius: s(19, 22, 27),
-        borderWidth: s(1.5, 2, 3),
-        borderColor: GLOBAL_THEME.neonGreen,
-        justifyContent: 'center',
+    avatarButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        borderWidth: 2,
+        borderColor: 'rgba(81, 225, 165, 0.3)',
+        backgroundColor: '#121c38',
         alignItems: 'center',
-        marginRight: s(8, 10, 14),
+        justifyContent: 'center',
+        marginRight: 12,
     },
-    profileImage: {
-        width: s(30, 36, 46),
-        height: s(30, 36, 46),
-        borderRadius: s(15, 18, 23),
+    avatarText: {
+        color: '#51e1a5',
+        fontSize: 14,
+        fontWeight: 'bold',
     },
     userInfo: {
         justifyContent: 'center',
     },
-    greetingText: {
-        color: GLOBAL_THEME.textSecondary,
-        fontSize: s(10, 12, 15),
-        fontWeight: '500',
-        marginBottom: s(1, 2, 4),
-    },
     userName: {
-        color: GLOBAL_THEME.textPrimary,
-        fontSize: s(13, 15, 18),
+        color: '#51e1a5',
+        fontSize: 20,
         fontWeight: 'bold',
+        fontStyle: 'italic',
+        letterSpacing: -0.5,
+        marginBottom: 2,
     },
-
-    rightSection: {
+    balanceContainer: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    iconBtn: {
-        padding: s(15, 20, 30),
-        marginRight: s(-20, -30, -40)
+    balanceText: {
+        color: 'rgba(81, 225, 165, 0.8)',
+        fontSize: 12,
+        fontWeight: '600',
+        marginLeft: 4,
     },
-    iconPressed: {
-        opacity: 0.6,
+    notificationButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#23293c',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    notiBadge: {
+    notificationButtonPressed: {
+        opacity: 0.8,
+        transform: [{ scale: 0.95 }],
+    },
+    badge: {
         position: 'absolute',
-        top: s(1.5, 2, 3),
-        right: s(1.5, 2, 3),
-        width: s(8, 10, 12),
-        height: s(8, 10, 12),
-        borderRadius: s(4, 5, 6),
-        backgroundColor: GLOBAL_THEME.notiRed,
-        borderWidth: s(1, 1.5, 2),
-        borderColor: GLOBAL_THEME.headerBg,
+        top: -4,
+        right: -4,
+        backgroundColor: '#ef4444',
+        minWidth: 16,
+        height: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+    },
+    badgeText: {
+        color: '#ffffff',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });

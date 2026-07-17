@@ -1,9 +1,8 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-    Dimensions,
-    ImageBackground,
+    ActivityIndicator,
     Keyboard,
     KeyboardAvoidingView,
     Platform,
@@ -13,486 +12,429 @@ import {
     Text,
     TextInput,
     TouchableWithoutFeedback,
-    View,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import useTranslation from '@/hooks/useTranslation';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const isSmall = SCREEN_WIDTH < 360;
-const isTablet = SCREEN_WIDTH >= 768;
-
-function s<T>(small: T, medium: T, tablet: T): T {
-    if (isTablet) return tablet;
-    if (isSmall) return small;
-    return medium;
-}
-
-const THEME = {
-    bg: '#050A1F',
-    headerBg: '#0F172A',
-    surface: '#152243',
-    border: '#1E293B',
-    textWhite: '#FFFFFF',
-    textMuted: '#8A9BB3',
-    neonGreen: '#00E676',
-    danger: '#FF4D4D',
+const initialForm = {
+    username: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+    pin: '',
+    pin_confirmation: '',
 };
 
-function validateName(name: string, t: any) {
-    const v = name.trim();
-    if (!v) return t.nameReq || 'Name ထည့်ပေးပါ';
-    if (v.length < 2) return t.nameMin || 'Name အနည်းဆုံး 2 လုံး လိုပါတယ်';
-    return '';
-}
-function validateEmail(email: string, t: any) {
-    const v = email.trim();
-    if (!v) return t.emailReq || 'Email ထည့်ပေးပါ';
-    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-    if (!ok) return t.emailInvalid || 'Email ပုံစံမမှန်ပါ (ဥပမာ: name@gmail.com)';
-    return '';
-}
-function validatePassword(password: string, t: any) {
-    const v = password.trim();
-    if (!v) return t.passwordReq || 'Password ထည့်ပေးပါ';
-    if (v.length < 6) return t.passwordMin || 'Password အနည်းဆုံး 6 လုံး လိုပါတယ်';
-    return '';
-}
-function validateConfirm(password: string, confirm: string, t: any) {
-    const p = password.trim();
-    const c = confirm.trim();
-    if (!c) return t.confirmReq || 'Confirm Password ထည့်ပေးပါ';
-    if (p !== c) return t.passwordMatch || 'Password နှစ်ခု မတူပါ';
-    return '';
-}
-
-export default function RegisterScreen() {
-    const insets = useSafeAreaInsets();
+export default function RegisterPage() {
     const router = useRouter();
-    const { t } = useTranslation();
+    const insets = useSafeAreaInsets();
 
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirm, setConfirm] = useState('');
-
+    const [form, setForm] = useState(initialForm);
     const [showPassword, setShowPassword] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [showPin, setShowPin] = useState(false);
+    const [showConfirmPin, setShowConfirmPin] = useState(false);
 
-    const [nameError, setNameError] = useState('');
-    const [emailError, setEmailError] = useState('');
-    const [passwordError, setPasswordError] = useState('');
-    const [confirmError, setConfirmError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
 
-    const canSubmit = !!name && !!email && !!password && !!confirm;
-
-    function checkName() {
-        const err = validateName(name, t);
-        setNameError(err);
-        return !err;
-    }
-    function checkEmail() {
-        const err = validateEmail(email, t);
-        setEmailError(err);
-        return !err;
-    }
-    function checkPassword() {
-        const err = validatePassword(password, t);
-        setPasswordError(err);
-
-        if (confirm.trim()) {
-            setConfirmError(validateConfirm(password, confirm, t));
-        }
-        return !err;
-    }
-    function checkConfirm() {
-        const err = validateConfirm(password, confirm, t);
-        setConfirmError(err);
-        return !err;
-    }
-
-    function onRegister() {
+    const handleSubmit = useCallback(async () => {
         Keyboard.dismiss();
+        setError(null);
+        setSuccess(null);
 
-        const ok1 = checkName();
-        const ok2 = checkEmail();
-        const ok3 = checkPassword();
-        const ok4 = checkConfirm();
-        if (!ok1 || !ok2 || !ok3 || !ok4) return;
+        if (form.password !== form.password_confirmation) {
+            setError('Passwords do not match.');
+            return;
+        }
 
-        console.log('REGISTER:', {
-            name: name.trim(),
-            email: email.trim(),
-            password: password.trim(),
-        });
+        if (!/^\d{6}$/.test(form.pin)) {
+            setError('Security PIN must be exactly 6 digits.');
+            return;
+        }
 
-        router.replace('/');
-    }
+        if (form.pin !== form.pin_confirmation) {
+            setError('Security PINs do not match.');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 800));
+            setSuccess('Registration successful. Redirecting...');
+            setTimeout(() => {
+                router.replace('/wallet/bank-setup');
+            }, 500);
+        } catch (err) {
+            setError('Registration failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    }, [form, router]);
+
+    const updateField = useCallback((field: keyof typeof initialForm, value: string) => {
+        setForm(prev => ({ ...prev, [field]: value }));
+    }, []);
+
+    const updatePinField = useCallback((field: 'pin' | 'pin_confirmation', value: string) => {
+        const numericValue = value.replace(/\D/g, '').slice(0, 6);
+        setForm(prev => ({ ...prev, [field]: numericValue }));
+    }, []);
 
     return (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.root}>
-
-                <View style={styles.heroWrap}>
-                    <ImageBackground
-                        source={require('../assets/images/header.png')}
-                        style={styles.hero}
-                        resizeMode="cover"
-                    >
-                        <View style={styles.heroSoftTint} />
-
-                        <View style={[styles.heroTextArea, { paddingTop: Math.max(insets.top, Number(s(8, 12, 16))) }]}>
-                            <View style={styles.textPlate}>
-                                <Text style={styles.heroTitle}>{t.signUpTitle || 'Create Account'}</Text>
-                                <Text style={styles.heroSubtitle}>{t.signUpSubtitle || 'Sign up to start ordering your favorite items'}</Text>
-                            </View>
-                        </View>
-                    </ImageBackground>
-                </View>
-
-                <KeyboardAvoidingView style={styles.flex1} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.root}>
+            <KeyboardAvoidingView
+                style={styles.keyboardView}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                     <ScrollView
+                        contentContainerStyle={[
+                            styles.scrollContent,
+                            {
+                                paddingTop: Math.max(insets.top + 24, 40),
+                                paddingBottom: Math.max(insets.bottom + 24, 40)
+                            }
+                        ]}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
-                        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, Number(s(18, 24, 30))) }}
+                        bounces={false}
                     >
+                        <View style={styles.headerContainer}>
+                            <Text style={styles.brandText}>ZARMANI108</Text>
+                            <Text style={styles.mainTitle}>
+                                Create an account{'\n'}and join the winning team
+                            </Text>
+                        </View>
+
                         <View style={styles.card}>
-                            <Text style={styles.label}>{t.nameLabel || 'Name'}</Text>
-                            <View style={styles.fieldWrap}>
-                                <View style={[styles.inputBox, !!nameError && styles.inputBoxError]}>
-                                    <View style={styles.iconPill}>
-                                        <Ionicons name="person-outline" size={Number(s(16, 18, 22))} color={THEME.textMuted} />
-                                    </View>
+                            <Text style={styles.cardHeaderTitle}>New Account</Text>
+
+                            <View style={styles.fieldContainer}>
+                                <Text style={styles.label}>Username</Text>
+                                <View style={styles.inputWrapper}>
                                     <TextInput
                                         style={styles.input}
-                                        value={name}
-                                        onChangeText={(v) => {
-                                            setName(v);
-                                            if (nameError) setNameError('');
-                                        }}
-                                        onBlur={checkName}
-                                        placeholder={t.namePlaceholder || "Enter your name"}
-                                        placeholderTextColor={THEME.textMuted}
-                                        autoCapitalize="words"
-                                        returnKeyType="next"
+                                        value={form.username}
+                                        onChangeText={(val) => updateField('username', val)}
+                                        autoCapitalize="none"
+                                        editable={!loading}
+                                        placeholderTextColor="#8a9bb3"
+                                        placeholder="Enter your username"
                                     />
                                 </View>
-                                {!!nameError && (
-                                    <Text style={styles.inlineError} numberOfLines={1}>
-                                        {nameError}
-                                    </Text>
-                                )}
                             </View>
 
-                            <Text style={styles.label}>{t.emailLabel || 'Email Address'}</Text>
-                            <View style={styles.fieldWrap}>
-                                <View style={[styles.inputBox, !!emailError && styles.inputBoxError]}>
-                                    <View style={styles.iconPill}>
-                                        <Ionicons name="mail-outline" size={Number(s(16, 18, 22))} color={THEME.textMuted} />
-                                    </View>
+                            <View style={styles.fieldContainer}>
+                                <Text style={styles.label}>Email Address</Text>
+                                <View style={styles.inputWrapper}>
                                     <TextInput
                                         style={styles.input}
-                                        value={email}
-                                        onChangeText={(v) => {
-                                            setEmail(v);
-                                            if (emailError) setEmailError('');
-                                        }}
-                                        onBlur={checkEmail}
-                                        placeholder={t.emailPlaceholder || "Enter your email"}
-                                        placeholderTextColor={THEME.textMuted}
+                                        value={form.email}
+                                        onChangeText={(val) => updateField('email', val)}
                                         keyboardType="email-address"
                                         autoCapitalize="none"
-                                        returnKeyType="next"
+                                        editable={!loading}
+                                        placeholderTextColor="#8a9bb3"
+                                        placeholder="Enter your email"
                                     />
                                 </View>
-                                {!!emailError && (
-                                    <Text style={styles.inlineError} numberOfLines={1}>
-                                        {emailError}
-                                    </Text>
-                                )}
                             </View>
 
-                            <Text style={styles.label}>{t.passwordLabel || 'Password'}</Text>
-                            <View style={styles.fieldWrap}>
-                                <View style={[styles.inputBox, !!passwordError && styles.inputBoxError]}>
-                                    <View style={styles.iconPill}>
-                                        <Ionicons name="lock-closed-outline" size={Number(s(16, 18, 22))} color={THEME.textMuted} />
-                                    </View>
-
+                            <View style={styles.fieldContainer}>
+                                <Text style={styles.label}>Password</Text>
+                                <View style={styles.inputWrapper}>
                                     <TextInput
-                                        style={styles.input}
-                                        value={password}
-                                        onChangeText={(v) => {
-                                            setPassword(v);
-                                            if (passwordError) setPasswordError('');
-                                            if (confirmError) setConfirmError('');
-                                        }}
-                                        onBlur={checkPassword}
-                                        placeholder={t.passwordPlaceholder || "Enter your password"}
-                                        placeholderTextColor={THEME.textMuted}
+                                        style={styles.passwordInput}
+                                        value={form.password}
+                                        onChangeText={(val) => updateField('password', val)}
                                         secureTextEntry={!showPassword}
-                                        returnKeyType="next"
+                                        editable={!loading}
+                                        placeholderTextColor="#8a9bb3"
+                                        placeholder="At least 8 characters"
                                     />
-
-                                    <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={10} style={styles.eyePill}>
-                                        <Ionicons
-                                            name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                                            size={Number(s(16, 18, 22))}
-                                            color={THEME.textMuted}
+                                    <Pressable
+                                        style={styles.eyeButton}
+                                        onPress={() => setShowPassword(p => !p)}
+                                        hitSlop={10}
+                                    >
+                                        <Feather
+                                            name={showPassword ? "eye" : "eye-off"}
+                                            size={18}
+                                            color="#8a9bb3"
                                         />
                                     </Pressable>
                                 </View>
-
-                                {!!passwordError && (
-                                    <Text style={styles.inlineError} numberOfLines={1}>
-                                        {passwordError}
-                                    </Text>
-                                )}
                             </View>
 
-                            <Text style={styles.label}>{t.confirmLabel || 'Confirm Password'}</Text>
-                            <View style={styles.fieldWrap}>
-                                <View style={[styles.inputBox, !!confirmError && styles.inputBoxError]}>
-                                    <View style={styles.iconPill}>
-                                        <Ionicons name="shield-checkmark-outline" size={Number(s(16, 18, 22))} color={THEME.textMuted} />
-                                    </View>
-
+                            <View style={styles.fieldContainer}>
+                                <Text style={styles.label}>Confirm Password</Text>
+                                <View style={styles.inputWrapper}>
                                     <TextInput
-                                        style={styles.input}
-                                        value={confirm}
-                                        onChangeText={(v) => {
-                                            setConfirm(v);
-                                            if (confirmError) setConfirmError('');
-                                        }}
-                                        onBlur={checkConfirm}
-                                        placeholder={t.confirmPlaceholder || "Re-enter your password"}
-                                        placeholderTextColor={THEME.textMuted}
-                                        secureTextEntry={!showConfirm}
-                                        returnKeyType="done"
+                                        style={styles.passwordInput}
+                                        value={form.password_confirmation}
+                                        onChangeText={(val) => updateField('password_confirmation', val)}
+                                        secureTextEntry={!showConfirmPassword}
+                                        editable={!loading}
+                                        placeholderTextColor="#8a9bb3"
+                                        placeholder="Re-enter password"
                                     />
-
-                                    <Pressable onPress={() => setShowConfirm((p) => !p)} hitSlop={10} style={styles.eyePill}>
-                                        <Ionicons
-                                            name={showConfirm ? 'eye-outline' : 'eye-off-outline'}
-                                            size={Number(s(16, 18, 22))}
-                                            color={THEME.textMuted}
+                                    <Pressable
+                                        style={styles.eyeButton}
+                                        onPress={() => setShowConfirmPassword(p => !p)}
+                                        hitSlop={10}
+                                    >
+                                        <Feather
+                                            name={showConfirmPassword ? "eye" : "eye-off"}
+                                            size={18}
+                                            color="#8a9bb3"
                                         />
                                     </Pressable>
                                 </View>
-
-                                {!!confirmError && (
-                                    <Text style={styles.inlineError} numberOfLines={1}>
-                                        {confirmError}
-                                    </Text>
-                                )}
                             </View>
+
+                            <View style={styles.fieldContainer}>
+                                <Text style={styles.label}>Security PIN</Text>
+                                <View style={styles.inputWrapper}>
+                                    <TextInput
+                                        style={styles.passwordInput}
+                                        value={form.pin}
+                                        onChangeText={(val) => updatePinField('pin', val)}
+                                        secureTextEntry={!showPin}
+                                        keyboardType="numeric"
+                                        maxLength={6}
+                                        editable={!loading}
+                                        placeholderTextColor="#8a9bb3"
+                                        placeholder="6-digit PIN"
+                                    />
+                                    <Pressable
+                                        style={styles.eyeButton}
+                                        onPress={() => setShowPin(p => !p)}
+                                        hitSlop={10}
+                                    >
+                                        <Feather
+                                            name={showPin ? "eye" : "eye-off"}
+                                            size={18}
+                                            color="#8a9bb3"
+                                        />
+                                    </Pressable>
+                                </View>
+                            </View>
+
+                            <View style={styles.fieldContainer}>
+                                <Text style={styles.label}>Confirm Security PIN</Text>
+                                <View style={styles.inputWrapper}>
+                                    <TextInput
+                                        style={styles.passwordInput}
+                                        value={form.pin_confirmation}
+                                        onChangeText={(val) => updatePinField('pin_confirmation', val)}
+                                        secureTextEntry={!showConfirmPin}
+                                        keyboardType="numeric"
+                                        maxLength={6}
+                                        editable={!loading}
+                                        placeholderTextColor="#8a9bb3"
+                                        placeholder="Re-enter 6-digit PIN"
+                                    />
+                                    <Pressable
+                                        style={styles.eyeButton}
+                                        onPress={() => setShowConfirmPin(p => !p)}
+                                        hitSlop={10}
+                                    >
+                                        <Feather
+                                            name={showConfirmPin ? "eye" : "eye-off"}
+                                            size={18}
+                                            color="#8a9bb3"
+                                        />
+                                    </Pressable>
+                                </View>
+                            </View>
+
+                            {error && (
+                                <View style={styles.feedbackError}>
+                                    <Text style={styles.feedbackTextError}>{error}</Text>
+                                </View>
+                            )}
+                            {success && (
+                                <View style={styles.feedbackSuccess}>
+                                    <Text style={styles.feedbackTextSuccess}>{success}</Text>
+                                </View>
+                            )}
 
                             <Pressable
-                                style={[styles.primaryBtn, !canSubmit && { opacity: 0.55 }]}
-                                disabled={!canSubmit}
-                                onPress={onRegister}
+                                style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                                onPress={handleSubmit}
+                                disabled={loading}
                             >
-                                <Text style={styles.primaryText}>{t.signUpBtn || 'Sign Up'}</Text>
-                                <View style={styles.arrowPill}>
-                                    <Ionicons name="arrow-forward" size={Number(s(14, 16, 20))} color={THEME.bg} />
-                                </View>
+                                {loading ? (
+                                    <ActivityIndicator color="#040A1F" />
+                                ) : (
+                                    <View style={styles.buttonContent}>
+                                        <Text style={styles.primaryButtonText}>Create Account</Text>
+                                        <Text style={styles.buttonArrow}> -{'>'}</Text>
+                                    </View>
+                                )}
                             </Pressable>
 
-                            <View style={styles.bottomRow}>
-                                <Text style={styles.bottomText}>{t.hasAccount || 'Already have an account? '}</Text>
-                                <Pressable onPress={() => router.replace('/')}>
-                                    <Text style={styles.bottomLink}>{t.logInLink || 'Log In.'}</Text>
+                            <View style={styles.footer}>
+                                <Text style={styles.footerText}>Already have an account? </Text>
+                                <Pressable onPress={() => router.push('/login')}>
+                                    <Text style={styles.footerLink}>Sign in</Text>
                                 </Pressable>
                             </View>
-                            <View style={{ height: Number(s(20, 30, 40)) }}></View>
                         </View>
                     </ScrollView>
-                </KeyboardAvoidingView>
-            </View>
-        </TouchableWithoutFeedback>
+                </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: THEME.bg
+        backgroundColor: '#050A1F',
     },
-    flex1: {
-        flex: 1
+    keyboardView: {
+        flex: 1,
     },
-
-    heroWrap: {
-        width: '100%',
-        height: Number(s(180, 230, 300)),
-        backgroundColor: THEME.bg
+    scrollContent: {
+        flexGrow: 1,
+        justifyContent: 'flex-start',
+        paddingHorizontal: 20,
     },
-    hero: {
-        width: '100%',
-        height: '100%'
+    headerContainer: {
+        marginBottom: 32,
     },
-    heroSoftTint: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(5,10,31,0.08)'
+    brandText: {
+        color: '#00E676',
+        fontSize: 12,
+        fontWeight: 'bold',
+        letterSpacing: 1.5,
+        marginBottom: 12,
     },
-
-    heroTextArea: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: Number(s(30, 50, 70)),
-        alignItems: 'center',
-        paddingHorizontal: Number(s(12, 16, 24)),
+    mainTitle: {
+        color: '#FFFFFF',
+        fontSize: 26,
+        fontWeight: 'bold',
+        lineHeight: 36,
     },
-
-    textPlate: {
-        width: '100%',
-        maxWidth: Number(s(520, 520, 700)),
-        borderRadius: Number(s(18, 22, 28)),
-        paddingVertical: Number(s(10, 14, 20)),
-        paddingHorizontal: Number(s(12, 16, 24)),
-        backgroundColor: 'rgba(5,10,31,0.38)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
-    },
-
-    heroTitle: {
-        color: THEME.textWhite,
-        fontSize: Number(s(28, 34, 46)),
-        fontWeight: '900',
-        textAlign: 'center',
-        textShadowColor: 'rgba(0,0,0,0.35)',
-        textShadowOffset: { width: 0, height: 2 },
-        textShadowRadius: Number(s(4, 6, 8)),
-    },
-    heroSubtitle: {
-        color: "gray",
-        fontWeight: "400",
-        fontSize: Number(s(12, 14, 18)),
-        textAlign: 'center',
-        marginTop: Number(s(6, 8, 12))
-    },
-
     card: {
-        marginTop: Number(s(-6, -10, -16)),
-        marginHorizontal: Number(s(12, 16, 24)),
-        alignSelf: 'center',
-        width: '100%',
-        maxWidth: Number(s(420, 420, 600)),
         backgroundColor: 'rgba(15, 23, 42, 0.88)',
+        borderRadius: 24,
+        padding: 24,
         borderWidth: 1,
-        borderColor: 'rgba(30, 41, 59, 0.9)',
-        borderRadius: Number(s(24, 30, 40)),
-        paddingHorizontal: Number(s(14, 18, 26)),
-        paddingTop: Number(s(18, 22, 30)),
-        paddingBottom: Number(s(14, 18, 26)),
-        elevation: Number(s(4, 6, 8)),
+        borderColor: '#1E293B',
     },
-
+    cardHeaderTitle: {
+        color: '#00E676',
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 24,
+    },
+    fieldContainer: {
+        marginBottom: 20,
+    },
     label: {
-        color: THEME.textWhite,
-        fontSize: Number(s(13, 15, 18)),
-        fontWeight: '900',
-        marginBottom: Number(s(8, 10, 14)),
-        marginLeft: Number(s(2, 2, 4))
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 10,
     },
-
-    fieldWrap: {
-        position: 'relative'
-    },
-    inputBox: {
+    inputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        height: Number(s(56, 66, 76)),
-        borderRadius: Number(s(16, 20, 24)),
-        backgroundColor: 'rgba(5,10,31,0.55)',
+        backgroundColor: 'rgba(5, 10, 31, 0.55)',
         borderWidth: 1,
-        borderColor: 'rgba(30,41,59,0.9)',
-        paddingHorizontal: Number(s(10, 12, 16)),
-        marginBottom: Number(s(16, 20, 28)),
+        borderColor: '#1E293B',
+        borderRadius: 12,
+        height: 52,
     },
-    inputBoxError: {
-        borderColor: THEME.danger
-    },
-
-    iconPill: {
-        width: Number(s(38, 44, 52)),
-        height: Number(s(38, 44, 52)),
-        borderRadius: Number(s(12, 16, 20)),
-        backgroundColor: 'rgba(21,34,67,0.65)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: Number(s(10, 12, 16)),
-        borderWidth: 1,
-        borderColor: 'rgba(30,41,59,0.75)',
-    },
-
     input: {
         flex: 1,
-        color: THEME.textWhite,
-        fontSize: Number(s(13, 15, 18)),
-        height: '100%'
+        height: '100%',
+        paddingHorizontal: 16,
+        color: '#FFFFFF',
+        fontSize: 15,
     },
-
-    eyePill: {
-        width: Number(s(38, 44, 52)),
-        height: Number(s(38, 44, 52)),
-        borderRadius: Number(s(12, 16, 20)),
-        backgroundColor: 'rgba(21,34,67,0.65)',
+    passwordInput: {
+        flex: 1,
+        height: '100%',
+        paddingHorizontal: 16,
+        color: '#FFFFFF',
+        fontSize: 15,
+    },
+    eyeButton: {
+        height: '100%',
+        paddingHorizontal: 16,
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: Number(s(8, 10, 14)),
+    },
+    feedbackError: {
+        backgroundColor: 'rgba(255, 77, 77, 0.1)',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 16,
         borderWidth: 1,
-        borderColor: 'rgba(30,41,59,0.75)',
+        borderColor: 'rgba(255, 77, 77, 0.3)',
     },
-
-    inlineError: {
-        position: 'absolute',
-        left: Number(s(10, 12, 16)),
-        right: Number(s(10, 12, 16)),
-        bottom: Number(s(2, 3, 5)),
-        color: THEME.danger,
-        fontSize: Number(s(10, 12, 14)),
-        fontWeight: '900',
+    feedbackTextError: {
+        color: '#FF4D4D',
+        fontSize: 14,
+        textAlign: 'center',
     },
-
-    primaryBtn: {
-        height: Number(s(56, 66, 76)),
-        borderRadius: Number(s(18, 22, 28)),
-        backgroundColor: THEME.neonGreen,
+    feedbackSuccess: {
+        backgroundColor: 'rgba(0, 230, 118, 0.1)',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(0, 230, 118, 0.3)',
+    },
+    feedbackTextSuccess: {
+        color: '#00E676',
+        fontSize: 14,
+        textAlign: 'center',
+    },
+    primaryButton: {
+        backgroundColor: '#00E676',
+        height: 56,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    buttonDisabled: {
+        opacity: 0.7,
+    },
+    buttonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    primaryButtonText: {
+        color: '#040A1F',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    buttonArrow: {
+        color: '#040A1F',
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginLeft: 4,
+    },
+    footer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        alignItems: 'center',
-        gap: Number(s(10, 12, 16)),
-        marginTop: Number(s(2, 2, 4)),
+        marginTop: 28,
     },
-    primaryText: {
-        color: THEME.bg,
-        fontSize: Number(s(16, 18, 22)),
-        fontWeight: '900'
+    footerText: {
+        color: '#8A9BB3',
+        fontSize: 14,
     },
-    arrowPill: {
-        width: Number(s(32, 38, 46)),
-        height: Number(s(32, 38, 46)),
-        borderRadius: Number(s(12, 16, 20)),
-        backgroundColor: 'rgba(5,10,31,0.12)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-
-    bottomRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: Number(s(8, 12, 16))
-    },
-    bottomText: {
-        color: THEME.textMuted,
-        fontSize: Number(s(11, 13, 16))
-    },
-    bottomLink: {
-        color: THEME.neonGreen,
-        fontSize: Number(s(11, 13, 16)),
-        fontWeight: '900'
+    footerLink: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: 'bold',
     },
 });

@@ -1,192 +1,429 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import React from 'react';
-import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
-import Advice from './Advice';
-import useTranslation from '@/hooks/useTranslation';
+import { useLiveStore } from '@/store/useLiveStore';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useRef } from 'react';
+import {
+    Animated,
+    Easing,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const isSmall = SCREEN_WIDTH < 360;
-const isTablet = SCREEN_WIDTH >= 768;
+const POLLING_INTERVAL = 10000;
 
-const s = (small: any, medium: any, tablet: any) => {
-    if (isTablet) return tablet;
-    if (isSmall) return small;
-    return medium;
-};
+function getSessionIcon(label: string): keyof typeof MaterialIcons.glyphMap {
+    if (label === 'Morning') return 'wb-twilight';
+    if (label === 'Noon') return 'light-mode';
+    return 'nights-stay';
+}
 
-const COLORS = {
-    cardBg: '#0B132B',
-    cardBorderLive: 'rgba(0, 230, 118, 0.3)',
-    textWhite: '#FFFFFF',
-    textMuted: '#8A9BB3',
-    neonGreen: '#00E676',
-    redLive: '#FF453A',
-    surfaceBox: '#152243',
-    gold: '#FFD700',
-};
+function getMyanmarSessionLabel(label: string): string {
+    switch (label) {
+        case 'Morning': return 'မနက်';
+        case 'Noon': return 'မွန်းတည့်';
+        case 'Evening': return 'ညနေ';
+        case 'Night': return 'ည';
+        default: return label;
+    }
+}
 
-const LiveIndicator = ({ label }: { label: string }) => {
+export default function LiveNumberCard() {
+    const router = useRouter();
+    const { liveNumber, lastUpdatedTimeText, error, sessionStats, fetchLive } = useLiveStore();
+
+    const numberOpacity = useRef(new Animated.Value(1)).current;
+    const ringScale = useRef(new Animated.Value(1)).current;
+    const ringOpacity = useRef(new Animated.Value(0.5)).current;
+    const dotOpacity = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        fetchLive();
+        const intervalId = setInterval(() => {
+            fetchLive();
+        }, POLLING_INTERVAL);
+
+        return () => clearInterval(intervalId);
+    }, [fetchLive]);
+
+    useEffect(() => {
+        const numberBlink = Animated.loop(
+            Animated.sequence([
+                Animated.timing(numberOpacity, {
+                    toValue: 0.3,
+                    duration: 400,
+                    delay: 1600,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(numberOpacity, {
+                    toValue: 1,
+                    duration: 400,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+        numberBlink.start();
+
+        const ringPulse = Animated.loop(
+            Animated.parallel([
+                Animated.sequence([
+                    Animated.timing(ringScale, {
+                        toValue: 1.15,
+                        duration: 1500,
+                        easing: Easing.out(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(ringScale, {
+                        toValue: 1,
+                        duration: 1500,
+                        easing: Easing.in(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                ]),
+                Animated.sequence([
+                    Animated.timing(ringOpacity, {
+                        toValue: 0,
+                        duration: 1500,
+                        easing: Easing.out(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(ringOpacity, {
+                        toValue: 0.5,
+                        duration: 1500,
+                        easing: Easing.in(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                ])
+            ])
+        );
+        ringPulse.start();
+
+        const dotBlink = Animated.loop(
+            Animated.sequence([
+                Animated.timing(dotOpacity, {
+                    toValue: 0,
+                    duration: 500,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(dotOpacity, {
+                    toValue: 1,
+                    duration: 500,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+        dotBlink.start();
+
+        return () => {
+            numberBlink.stop();
+            ringPulse.stop();
+            dotBlink.stop();
+        };
+    }, [numberOpacity, ringScale, ringOpacity, dotOpacity]);
+
+    const lastUpdatedLabel = useMemo(() => {
+        if (!lastUpdatedTimeText) return 'စောင့်ဆိုင်းနေပါသည်...';
+        return `${lastUpdatedTimeText} တွင် မွမ်းမံထားသည်`;
+    }, [lastUpdatedTimeText]);
+
     return (
-        <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>{label}</Text>
-        </View>
-    );
-};
+        <View style={styles.container}>
+            <View style={styles.heroSection}>
+                <View style={styles.heroWrapper}>
+                    <Animated.View
+                        style={[
+                            styles.glowRingOuter,
+                            {
+                                transform: [{ scale: ringScale }],
+                                opacity: ringOpacity,
+                            },
+                        ]}
+                    />
+                    <View style={styles.glowRingInner} />
 
-export function LiveNumberCard() {
-    const { t } = useTranslation();
+                    <View style={styles.heroContent}>
+                        <Image
+                            source={require('../../assets/images/Zarmani_Brand_logo.png')}
+                            style={styles.heroImage}
+                            resizeMode="cover"
+                        />
 
-    return (
-        <View>
-            <View style={styles.cardContainer}>
-
-                <View style={styles.header}>
-                    <LiveIndicator label={t.live || 'LIVE'} />
-                    <Text style={styles.timeText}>04:30:45 PM</Text>
-                </View>
-
-                <View style={styles.mainDisplay}>
-                    <Text style={styles.bigNumber}>85</Text>
-                    <View style={styles.horizontalDivider} />
-                </View>
-
-                <View style={styles.footer}>
-                    <View style={styles.historyBlock}>
-                        <Ionicons name="sunny" size={s(15, 26, 32)} color={COLORS.gold} style={styles.iconMargin} />
-                        <Text style={styles.historyLabel}>12:01 PM</Text>
-                        <Text style={styles.historyValueGold}>45</Text>
-                    </View>
-
-                    <View style={styles.footerDivider} />
-
-                    <View style={styles.historyBlock}>
-                        <Ionicons name="partly-sunny" size={s(15, 26, 32)} color={COLORS.neonGreen} style={styles.iconMargin} />
-                        <Text style={styles.historyLabelNeon}>04:30 PM</Text>
-                        <Text style={styles.historyValueNeon}>85</Text>
+                        <View style={styles.heroOverlay}>
+                            <View style={styles.livePill}>
+                                <Animated.View style={[styles.liveDot, { opacity: dotOpacity }]} />
+                                <Text style={styles.liveText}>တိုက်ရိုက်</Text>
+                            </View>
+                            <Animated.Text style={[styles.mainNumber, { opacity: numberOpacity }]}>
+                                {liveNumber}
+                            </Animated.Text>
+                            <Text style={styles.updatedText}>{lastUpdatedLabel}</Text>
+                        </View>
                     </View>
                 </View>
 
+                {error != null && <Text style={styles.errorText}>ချိတ်ဆက်မှု မအောင်မြင်ပါ</Text>}
             </View>
 
-            <Advice />
+            <View style={styles.bentoGrid}>
+                <View style={styles.bentoCard}>
+                    <Text style={styles.bentoTitle}>လောလောဆယ် 2D</Text>
+                    <Animated.Text style={[styles.bentoNumber, { opacity: numberOpacity }]}>
+                        {liveNumber}
+                    </Animated.Text>
+                </View>
+                <View style={styles.bentoCard}>
+                    <Text style={styles.bentoTitle}>လောလောဆယ် 3D</Text>
+                    <Text style={styles.bentoNumber}>--</Text>
+                </View>
+            </View>
+
+            <View style={styles.resultsSection}>
+                <View style={styles.resultsHeader}>
+                    <Text style={styles.resultsTitle}>နေ့စဉ်ရလဒ်</Text>
+                    <Text style={styles.resultsSubtitle}>{lastUpdatedLabel}</Text>
+                </View>
+
+                <View style={styles.statsContainer}>
+                    {sessionStats.length === 0 ? (
+                        <Text style={styles.emptyText}>ရလဒ်မရှိသေးပါ</Text>
+                    ) : (
+                        sessionStats.map((stat, i) => (
+                            <View key={i} style={styles.statRow}>
+                                <View style={styles.statLeft}>
+                                    <View style={styles.statIconWrap}>
+                                        <MaterialIcons name={getSessionIcon(stat.label)} size={22} color="#51e1a5" />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.statLabel}>{getMyanmarSessionLabel(stat.label)}</Text>
+                                        <Text style={styles.statTime}>{stat.time}</Text>
+                                    </View>
+                                </View>
+                                <Text style={[styles.statValue, stat.value === '--' && styles.statValueEmpty]}>
+                                    {stat.value}
+                                </Text>
+                            </View>
+                        ))
+                    )}
+                </View>
+            </View>
+
+            <TouchableOpacity
+                style={styles.actionBtn}
+                activeOpacity={0.85}
+                onPress={() => router.push('/(tabs)/explore')}
+            >
+                <Text style={styles.actionBtnText}>ထီထိုးမည်</Text>
+            </TouchableOpacity>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    cardContainer: {
-        backgroundColor: COLORS.cardBg,
-        borderColor: COLORS.cardBorderLive,
-        marginHorizontal: s(12, 16, 24),
-        marginTop: s(15, 20, 30),
-        borderRadius: s(18, 24, 32),
-        padding: s(15, 20, 30),
-        borderWidth: 1.5,
-        ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20 },
-            android: { elevation: 10 },
-        }),
+    container: {
+        flex: 1,
+        gap: 24,
+        paddingTop: 20,
+        paddingBottom: 30,
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+    heroSection: {
         alignItems: 'center',
-        marginBottom: s(18, 25, 35)
     },
-    liveBadge: {
-        flexDirection: 'row',
+    heroWrapper: {
+        width: 240,
+        height: 240,
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 69, 58, 0.15)',
-        paddingHorizontal: s(10, 12, 16),
-        paddingVertical: s(4, 6, 8),
-        borderRadius: s(16, 20, 28),
+        justifyContent: 'center',
+        position: 'relative',
+    },
+    glowRingOuter: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 120,
+        borderWidth: 2,
+        borderColor: 'rgba(81, 225, 165, 0.2)',
+    },
+    glowRingInner: {
+        position: 'absolute',
+        top: 20,
+        left: 20,
+        right: 20,
+        bottom: 20,
+        borderRadius: 100,
         borderWidth: 1,
-        borderColor: 'rgba(255, 69, 58, 0.3)'
+        borderColor: 'rgba(81, 225, 165, 0.1)',
+    },
+    heroContent: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 120,
+        overflow: 'hidden',
+        position: 'relative',
+        backgroundColor: '#0c1324',
+    },
+    heroImage: {
+        width: '100%',
+        height: '100%',
+        opacity: 0.5,
+        position: 'absolute',
+    },
+    heroOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        paddingBottom: 24,
+        backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    },
+    livePill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(81, 225, 165, 0.2)',
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(81, 225, 165, 0.4)',
+        marginBottom: 8,
     },
     liveDot: {
-        width: s(6, 8, 10),
-        height: s(6, 8, 10),
-        borderRadius: s(3, 4, 5),
-        backgroundColor: COLORS.redLive,
-        marginRight: s(4, 6, 8)
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#f87171',
+        marginRight: 6,
     },
     liveText: {
-        color: COLORS.redLive,
-        fontSize: s(11, 13, 16),
-        fontWeight: '900',
-        letterSpacing: 1
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#51e1a5',
     },
-    timeText: {
-        color: COLORS.textMuted,
-        fontSize: s(12, 14, 18),
-        fontWeight: '700',
-        letterSpacing: 1
+    mainNumber: {
+        fontSize: 72,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+        letterSpacing: -2,
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 4 },
+        textShadowRadius: 10,
     },
-
-    mainDisplay: {
-        alignItems: 'center',
-        marginBottom: s(20, 30, 45)
+    updatedText: {
+        fontSize: 10,
+        color: 'rgba(255, 255, 255, 0.7)',
+        marginTop: 4,
     },
-    bigNumber: {
-        color: COLORS.neonGreen,
-        fontSize: s(80, 110, 160),
-        fontWeight: '900',
-        includeFontPadding: false,
-        lineHeight: s(90, 120, 170),
-        textShadowColor: 'rgba(0, 230, 118, 0.4)',
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: s(15, 20, 30)
+    errorText: {
+        marginTop: 8,
+        fontSize: 11,
+        color: 'rgba(248, 113, 113, 0.9)',
+        textAlign: 'center',
     },
-
-    // အသစ်ထည့်ထားသော Horizontal Divider ၏ Style
-    horizontalDivider: {
-        height: 1,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignSelf: 'stretch',
-        marginTop: s(15, 20, 30),
-        marginHorizontal: s(10, 15, 20)
-    },
-
-    footer: {
+    bentoGrid: {
         flexDirection: 'row',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        borderRadius: s(12, 16, 24),
-        paddingVertical: s(10, 12, 16)
+        gap: 12,
     },
-    historyBlock: {
+    bentoCard: {
         flex: 1,
+        backgroundColor: 'rgba(35, 41, 60, 0.4)',
+        borderWidth: 1,
+        borderColor: 'rgba(60, 74, 60, 0.2)',
+        borderRadius: 12,
+        padding: 20,
         alignItems: 'center',
-        justifyContent: 'center'
     },
-    historyLabel: {
-        color: COLORS.textMuted,
-        fontSize: s(12, 14, 18),
-        fontWeight: '700',
-        marginBottom: s(2, 4, 6)
+    bentoTitle: {
+        fontSize: 11,
+        color: '#51e1a5',
+        fontWeight: 'bold',
+        marginBottom: 10,
     },
-    footerDivider: {
-        width: 1,
-        backgroundColor: 'rgba(255,255,255,0.1)'
+    bentoNumber: {
+        fontSize: 36,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
     },
-
-    iconMargin: {
-        marginBottom: s(4, 6, 8)
+    resultsSection: {},
+    resultsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        marginBottom: 12,
     },
-    historyValueGold: {
-        color: COLORS.gold,
-        fontSize: s(20, 25, 30),
-        fontWeight: '900'
+    resultsTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
     },
-    historyLabelNeon: {
-        color: COLORS.neonGreen,
-        fontSize: s(12, 14, 18),
-        fontWeight: '700',
-        marginBottom: s(2, 4, 6)
+    resultsSubtitle: {
+        fontSize: 10,
+        color: 'rgba(255, 255, 255, 0.4)',
     },
-    historyValueNeon: {
-        color: COLORS.neonGreen,
-        fontSize: s(20, 25, 30),
-        fontWeight: '900'
-    }
+    statsContainer: {
+        gap: 8,
+    },
+    emptyText: {
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.3)',
+        textAlign: 'center',
+        paddingVertical: 16,
+    },
+    statRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#151b2d',
+        borderRadius: 12,
+        padding: 16,
+    },
+    statLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    statIconWrap: {
+        width: 44,
+        height: 44,
+        borderRadius: 8,
+        backgroundColor: '#2e3447',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    statLabel: {
+        fontSize: 11,
+        color: 'rgba(255, 255, 255, 0.6)',
+        marginBottom: 4,
+    },
+    statTime: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+    },
+    statValue: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#51e1a5',
+    },
+    statValueEmpty: {
+        color: 'rgba(255, 255, 255, 0.25)',
+    },
+    actionBtn: {
+        height: 56,
+        backgroundColor: '#51e1a5',
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#51e1a5',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    actionBtnText: {
+        color: '#003824',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
 });

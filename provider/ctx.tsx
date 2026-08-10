@@ -1,4 +1,4 @@
-import { use, createContext, type PropsWithChildren } from 'react';
+import { createContext, use, type PropsWithChildren } from 'react';
 
 import { useStorageState } from '@/hooks/useStorageState';
 
@@ -14,7 +14,6 @@ const AuthContext = createContext<{
     isLoading: false,
 });
 
-// Use this hook to access the user info.
 export function useSession() {
     const value = use(AuthContext);
     if (!value) {
@@ -31,7 +30,6 @@ export function SessionProvider({ children }: PropsWithChildren) {
         <AuthContext.Provider
             value={{
                 signIn: () => {
-                    // Perform sign-in logic here
                     setSession('xxx');
                 },
                 signOut: () => {

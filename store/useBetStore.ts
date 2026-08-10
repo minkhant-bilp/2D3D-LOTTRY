@@ -30,7 +30,7 @@ export const useBetStore = create<BetState>((set, get) => ({
     targetOpenTime: '12:01:00',
     betRows: [createEmptyRow()],
     pin: '',
-    walletBalance: 50000, // Default for UI testing
+    walletBalance: 50000, 
     isTwoDType: true,
     currency: 'MMK',
 
@@ -65,5 +65,13 @@ export const useBetStore = create<BetState>((set, get) => ({
             }
             return total;
         }, 0);
-    }
+    },
+      addMultipleBets: (newBets: { number: string, amount: string }[]) => set((state) => {
+    const rowsToAdd = newBets.map(bet => ({
+        id: Math.random().toString(36).substr(2, 9), 
+        number: bet.number,
+        amount: bet.amount
+    }));
+    return { betRows: [...state.betRows, ...rowsToAdd] };
+}),
 }));

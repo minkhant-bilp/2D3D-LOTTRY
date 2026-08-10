@@ -9,7 +9,6 @@ export default function WithdrawalRequestScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    // 🌟 Form States
     const [amount, setAmount] = useState('');
     const [pin, setPin] = useState('');
     const [showPin, setShowPin] = useState(false);

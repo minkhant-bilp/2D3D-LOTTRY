@@ -10,7 +10,6 @@ export default function DepositScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    // 🌟 Form States
     const [amount, setAmount] = useState('');
     const [note, setNote] = useState('');
     const [proofUri, setProofUri] = useState<string | null>(null);

@@ -1,11 +1,14 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { listNotificationLogsAPI, markAllNotificationsAsReadAPI } from '../../api/main';
+
 type NotificationLogEntry = {
-    id: string;
+    id: string | number;
     notification_type: string;
     title: string;
     body: string;
@@ -15,8 +18,11 @@ type NotificationLogEntry = {
 const NOTIFICATION_TYPE_CONFIG: Record<string, { icon: any; bgColor: string; iconColor: string }> = {
     deposit_approved: { icon: 'check-circle', bgColor: 'rgba(0, 230, 118, 0.12)', iconColor: '#00e676' },
     deposit_rejected: { icon: 'cancel', bgColor: 'rgba(239, 68, 68, 0.12)', iconColor: '#f87171' },
+    withdrawal_completed: { icon: 'account-balance', bgColor: 'rgba(0, 230, 118, 0.12)', iconColor: '#00e676' },
+    withdrawal_rejected: { icon: 'cancel', bgColor: 'rgba(239, 68, 68, 0.12)', iconColor: '#f87171' },
     bet_won: { icon: 'emoji-events', bgColor: 'rgba(0, 230, 118, 0.12)', iconColor: '#00e676' },
     bet_paid_out: { icon: 'payments', bgColor: 'rgba(0, 230, 118, 0.12)', iconColor: '#00e676' },
+    settlement_reverted: { icon: 'undo', bgColor: 'rgba(245, 158, 11, 0.12)', iconColor: '#fbbf24' },
 };
 
 const DEFAULT_NOTIFICATION_TYPE_CONFIG = {
@@ -33,35 +39,69 @@ export default function NotificationsPage() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const [items, setItems] = useState<NotificationLogEntry[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(false);
+    const {
+        data,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        status,
+        error
+    } = useInfiniteQuery({
+        queryKey: ['notifications'],
+        queryFn: async ({ pageParam = 1 }) => {
+            const response = await listNotificationLogsAPI({ page: pageParam, per_page: 20 });
 
-    const load = async (pageNum: number, append: boolean) => {
-        setLoading(true);
-        try {
-            setTimeout(() => {
-                const fetched: NotificationLogEntry[] = [
-                    { id: '1', notification_type: 'deposit_approved', title: 'ငွေသွင်းခြင်း အောင်မြင်ပါသည်', body: 'သင့်အကောင့်သို့ 50,000 MMK ရောက်ရှိပါပြီ။', created_at: new Date().toISOString() },
-                    { id: '2', notification_type: 'bet_won', title: 'လောင်းကြေး အောင်မြင်ပါသည်', body: 'ဂုဏ်ယူပါတယ်။ သင် 100,000 MMK အနိုင်ရရှိပါသည်။', created_at: new Date(Date.now() - 86400000).toISOString() },
-                    { id: '3', notification_type: 'deposit_rejected', title: 'ငွေသွင်းခြင်း ပယ်ချခံရပါသည်', body: 'သင့်ငွေသွင်းမှု မအောင်မြင်ပါ။ ထပ်မံကြိုးစားကြည့်ပါ။', created_at: new Date(Date.now() - 172800000).toISOString() },
-                    { id: '4', notification_type: 'unknown', title: 'စနစ် အကြောင်းကြားစာ', body: 'စနစ်ကို ခေတ္တခဏ ပြုပြင်နေပါသည်။', created_at: new Date(Date.now() - 259200000).toISOString() },
-                ];
-                setItems((prev) => (append ? [...prev, ...fetched] : fetched));
-                setHasMore(false);
-                setLoading(false);
-            }, 800);
-        } catch {
-            setError('မှတ်တမ်းများ ရယူရာတွင် အမှားအယွင်းဖြစ်ပေါ်ခဲ့ပါသည်။');
-            setLoading(false);
+            console.log(`\n📡 [API LOG] Page ${pageParam} Response:`, JSON.stringify(response, null, 2));
+
+            return response?.data || response;
+        },
+        initialPageParam: 1,
+        getNextPageParam: (lastPage: any) => {
+            if (lastPage?.current_page && lastPage?.last_page && lastPage.current_page < lastPage.last_page) {
+                return lastPage.current_page + 1;
+            }
+            return undefined;
+        },
+    });
+
+    const markAsReadMutation = useMutation({
+        mutationFn: markAllNotificationsAsReadAPI,
+        onSuccess: () => {
+            console.log("✅ [API LOG] Mark as read successful");
         }
-    };
+    });
 
     useEffect(() => {
-        load(1, false);
+        markAsReadMutation.mutate();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const items = useMemo(() => {
+        console.log(`\n🧩 [DEBUG LOG] Raw Data Pages Length:`, data?.pages?.length);
+        if (!data?.pages) return [];
+
+        const extractedItems = data.pages.flatMap((page: any, index: number) => {
+            console.log(`📄 [DEBUG LOG] Parsing Page ${index + 1}:`, typeof page, Array.isArray(page));
+
+            let entries: any[] = [];
+
+            if (Array.isArray(page)) {
+                entries = page;
+            } else if (page?.data && Array.isArray(page.data)) {
+                entries = page.data;
+            } else if (page?.data?.data && Array.isArray(page.data.data)) {
+                entries = page.data.data;
+            }
+
+            console.log(`🔍 [DEBUG LOG] Extracted Entries Count for Page ${index + 1}:`, entries.length);
+            return entries;
+        }).filter((item: any) => {
+            return item && typeof item === 'object' && 'notification_type' in item;
+        }) as NotificationLogEntry[];
+
+        console.log(`✅ [DEBUG LOG] Final Render Items Count:`, extractedItems.length);
+        return extractedItems;
+    }, [data]);
 
     return (
         <View style={styles.root}>
@@ -79,11 +119,13 @@ export default function NotificationsPage() {
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-                {loading && page === 1 ? (
+                {status === 'pending' ? (
                     <ActivityIndicator size="large" color="#93c5fd" style={{ marginTop: 40 }} />
-                ) : error ? (
+                ) : status === 'error' ? (
                     <View style={styles.emptyState}>
-                        <Text style={styles.errorText}>{error}</Text>
+                        <Text style={styles.errorText}>
+                            {error instanceof Error ? error.message : 'မှတ်တမ်းများ ရယူရာတွင် အမှားအယွင်းဖြစ်ပေါ်ခဲ့ပါသည်။'}
+                        </Text>
                     </View>
                 ) : items.length === 0 ? (
                     <View style={styles.emptyState}>
@@ -91,11 +133,14 @@ export default function NotificationsPage() {
                     </View>
                 ) : (
                     <View style={styles.card}>
-                        {items.map((item) => {
+                        {items.map((item, index) => {
+                            if (!item || !item.notification_type) return null;
+
                             const typeConfig = getNotificationTypeConfig(item.notification_type);
+                            const key = `${item.id}-${index}`;
 
                             return (
-                                <View key={item.id} style={styles.notificationItem}>
+                                <View key={key} style={styles.notificationItem}>
                                     <View style={[styles.iconWrapper, { backgroundColor: typeConfig.bgColor }]}>
                                         <MaterialIcons name={typeConfig.icon} size={18} color={typeConfig.iconColor} />
                                     </View>
@@ -111,20 +156,22 @@ export default function NotificationsPage() {
                             );
                         })}
 
-                        {hasMore && (
+                        {hasNextPage && (
                             <Pressable
                                 style={({ pressed }) => [styles.loadMoreBtn, pressed && styles.loadMoreBtnPressed]}
-                                onPress={() => {
-                                    const next = page + 1;
-                                    setPage(next);
-                                    load(next, true);
-                                }}
+                                onPress={() => fetchNextPage()}
+                                disabled={isFetchingNextPage}
                             >
-                                <Text style={styles.loadMoreText}>ထပ်မံပြသမည်</Text>
+                                {isFetchingNextPage ? (
+                                    <ActivityIndicator size="small" color="#8a9bb3" />
+                                ) : (
+                                    <Text style={styles.loadMoreText}>ထပ်မံပြသမည်</Text>
+                                )}
                             </Pressable>
                         )}
                     </View>
                 )}
+                <View style={{ height: 60 }}></View>
             </ScrollView>
         </View>
     );
@@ -252,6 +299,7 @@ const styles = StyleSheet.create({
     },
     errorText: {
         color: '#ef4444',
-        fontSize: 14
+        fontSize: 14,
+        textAlign: 'center'
     }
 });

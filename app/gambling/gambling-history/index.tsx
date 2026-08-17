@@ -1,15 +1,19 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type BetNumber = { number: string; amount: number };
+import { listBetsAPI } from '@/api/main';
+import { listenForBetNotifications } from '@/utils/betNotificationBus';
+
+type BetNumber = { number: string | number; amount: number };
 type Bet = {
     id: string;
     status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'REFUNDED';
     bet_type: string;
-    total_amount: number;
+    total_amount: string | number;
     currency: string;
     bet_numbers: BetNumber[];
     stock_date: string;
@@ -32,30 +36,50 @@ function formatOpenTime(time: string | null | undefined) {
     return `${h12}:${m} ${suffix}`;
 }
 
+function formatBetNumber(value: number | string | null | undefined, betType: string | null | undefined): string {
+    if (value === null || value === undefined || value === '') return '—';
+    return String(value).padStart(betType === '3D' ? 3 : 2, '0');
+}
+
 export default function GamblingHistoryScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const queryClient = useQueryClient();
 
-    const [bets, setBets] = useState<Bet[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    const load = async () => {
-        setLoading(true);
-        try {
-            setTimeout(() => {
-                setBets([]);
-                setLoading(false);
-            }, 800);
-        } catch {
-            setError('Unable to load bet history. Please try again.');
-            setLoading(false);
+    const {
+        data,
+        isLoading,
+        isError,
+        error,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage
+    } = useInfiniteQuery({
+        queryKey: ['betsHistory'],
+        queryFn: async ({ pageParam = 1 }) => {
+            const res = await listBetsAPI({ page: pageParam, page_size: 15 });
+            return {
+                bets: res?.data?.bets || res?.bets || [],
+                page: pageParam,
+            };
+        },
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => {
+            return lastPage.bets.length === 15 ? lastPage.page + 1 : undefined;
         }
-    };
+    });
 
     useEffect(() => {
-        load();
-    }, []);
+        const unsubscribe = listenForBetNotifications(() => {
+            console.log("🔄 [DEBUG] Bet Notification Received. Refreshing Data...");
+            queryClient.invalidateQueries({ queryKey: ['betsHistory'] });
+        });
+        return () => unsubscribe();
+    }, [queryClient]);
+
+    const bets = useMemo(() => {
+        return data?.pages.flatMap((page) => page.bets) || [];
+    }, [data]);
 
     return (
         <View style={styles.root}>
@@ -71,11 +95,13 @@ export default function GamblingHistoryScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {loading ? (
+                {isLoading ? (
                     <ActivityIndicator size="large" color="#00e676" style={{ marginTop: 60 }} />
-                ) : error ? (
+                ) : isError ? (
                     <View style={styles.emptyState}>
-                        <Text style={[styles.emptyDesc, { color: '#EF4444' }]}>{error}</Text>
+                        <Text style={[styles.emptyDesc, { color: '#EF4444' }]}>
+                            {error?.message || 'Unable to load bet history. Please try again.'}
+                        </Text>
                     </View>
                 ) : bets.length === 0 ? (
                     <View style={styles.emptyState}>
@@ -89,8 +115,8 @@ export default function GamblingHistoryScreen() {
                     </View>
                 ) : (
                     <View style={styles.listContainer}>
-                        {bets.map((bet) => {
-                            const status = STATUS_CONFIG[bet.status];
+                        {bets.map((bet: Bet) => {
+                            const status = STATUS_CONFIG[bet.status] || STATUS_CONFIG.PENDING;
                             return (
                                 <View key={bet.id} style={styles.listItem}>
                                     <View style={styles.itemHeader}>
@@ -112,7 +138,7 @@ export default function GamblingHistoryScreen() {
                                     <View style={styles.numbersGrid}>
                                         {bet.bet_numbers.map((n, i) => (
                                             <View key={i} style={styles.numberBadge}>
-                                                <Text style={styles.numberText}>{String(n.number).padStart(2, '0')}</Text>
+                                                <Text style={styles.numberText}>{formatBetNumber(n.number, bet.bet_type)}</Text>
                                                 <Text style={styles.numberAmount}>× {n.amount}</Text>
                                             </View>
                                         ))}
@@ -130,6 +156,21 @@ export default function GamblingHistoryScreen() {
                                 </View>
                             );
                         })}
+
+                        {hasNextPage && (
+                            <TouchableOpacity
+                                activeOpacity={0.7}
+                                style={styles.loadMoreBtn}
+                                onPress={() => fetchNextPage()}
+                                disabled={isFetchingNextPage}
+                            >
+                                {isFetchingNextPage ? (
+                                    <ActivityIndicator size="small" color="#8A9BB3" />
+                                ) : (
+                                    <Text style={styles.loadMoreText}>Load More</Text>
+                                )}
+                            </TouchableOpacity>
+                        )}
                     </View>
                 )}
             </ScrollView>
@@ -146,11 +187,13 @@ const styles = StyleSheet.create({
     title: { color: '#F7F9FF', fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
     desc: { color: '#8A9BB3', fontSize: 13, lineHeight: 20 },
     scrollContent: { padding: 20, paddingBottom: 40 },
+
     emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80, paddingHorizontal: 20 },
     emptyIconWrapper: { marginBottom: 16 },
     emptyIcon: { opacity: 0.8 },
     emptyTitle: { color: '#6B7280', fontSize: 15, fontWeight: 'bold', marginBottom: 12 },
     emptyDesc: { color: '#4B5563', fontSize: 13, textAlign: 'center', lineHeight: 22 },
+
     listContainer: { gap: 12 },
     listItem: { backgroundColor: 'rgba(11, 19, 43, 0.94)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 16 },
     itemHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
@@ -158,16 +201,22 @@ const styles = StyleSheet.create({
     betTypeText: { color: '#F7F9FF', fontSize: 10, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
     statusBadge: { borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
     statusText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
+
     amountContainer: { marginBottom: 12 },
     wagerLabel: { color: '#8A9BB3', fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginBottom: 2 },
     wagerAmount: { color: '#F7F9FF', fontSize: 18, fontWeight: 'bold' },
     wagerCurrency: { color: '#8A9BB3', fontSize: 12, fontWeight: 'normal' },
+
     numbersGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
     numberBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 4 },
     numberText: { color: '#E2E8F0', fontSize: 12, fontWeight: 'bold' },
     numberAmount: { color: '#8A9BB3', fontSize: 12 },
+
     metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
     metaDate: { color: '#8A9BB3', fontSize: 11 },
     timeBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0, 230, 118, 0.1)', borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, gap: 4 },
     timeText: { color: '#00e676', fontSize: 11, fontWeight: 'bold' },
+
+    loadMoreBtn: { backgroundColor: 'rgba(255, 255, 255, 0.04)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
+    loadMoreText: { color: '#8A9BB3', fontSize: 13, fontWeight: 'bold' }
 });

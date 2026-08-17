@@ -1,273 +1,241 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { createWithdrawalAPI, getMyBankInfoAPI } from '../../api/main';
+import { useAppStore } from '../../store/useAppStore';
 
 export default function WithdrawalRequestScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
+    const wallet = useAppStore((state: any) => state.wallet);
+    const refreshWallet = useAppStore((state: any) => state.refreshWallet);
+    const currency = wallet?.currency ?? 'MMK';
+    const availableBalance = wallet?.balance ?? 0;
+
     const [amount, setAmount] = useState('');
     const [pin, setPin] = useState('');
     const [showPin, setShowPin] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const currency = 'THB';
-    const availableBalance = 0;
-    const userBank = {
-        name: 'KBZ',
-        accountName: 'Min Khant',
-        accountNumber: '09425965658'
+    const toastAnim = useRef(new Animated.Value(-150)).current;
+    const [toastData, setToastData] = useState({ msg: '', type: 'error' });
+
+    const showToast = (msg: string, type: 'success' | 'error' = 'error') => {
+        setToastData({ msg, type });
+        toastAnim.stopAnimation();
+        toastAnim.setValue(-150);
+
+        Animated.sequence([
+            Animated.timing(toastAnim, { toValue: Math.max(insets.top, 20) + 10, duration: 400, easing: Easing.out(Easing.back(1.5)), useNativeDriver: true }),
+            Animated.delay(2500),
+            Animated.timing(toastAnim, { toValue: -150, duration: 300, easing: Easing.in(Easing.ease), useNativeDriver: true })
+        ]).start();
     };
+
+    const { data: bankInfo, isLoading: loadingBank } = useQuery({
+        queryKey: ['myBankInfo'],
+        queryFn: async () => {
+            try {
+                const res = await getMyBankInfoAPI();
+                return res?.data?.bank_info ?? res?.bank_info ?? null;
+            } catch (error: any) {
+                if (error?.response?.status === 404) return null;
+                throw error;
+            }
+        }
+    });
+
+    const mutation = useMutation({
+        mutationFn: createWithdrawalAPI,
+        onSuccess: () => {
+            showToast('ငွေထုတ်တောင်းဆိုမှု အောင်မြင်ပါသည်။', 'success');
+            refreshWallet();
+            setTimeout(() => {
+                router.back();
+            }, 1500);
+        },
+        onError: (error: any) => {
+            const errorData = error?.response?.data;
+            const errMsg = errorData?.errors?.domain?.[0]
+                || errorData?.message
+                || 'ငွေထုတ်တောင်းဆိုမှု မအောင်မြင်ပါ။';
+            showToast(errMsg, 'error');
+        }
+    });
 
     const handleSubmit = () => {
-        setIsSubmitting(true);
-        setTimeout(() => {
-            setIsSubmitting(false);
-            router.back();
-        }, 1500);
+        const numericAmount = Number(amount.trim());
+        if (!numericAmount || numericAmount <= 0) return showToast('ပမာဏ မှန်ကန်စွာ ထည့်ပါ။');
+        if (numericAmount > availableBalance) return showToast('လက်ကျန်ငွေ မလုံလောက်ပါ။');
+        if (pin.length !== 6) return showToast('PIN ဂဏန်း ၆ လုံး ထည့်ပါ။');
+        if (!bankInfo) return showToast('ငွေထုတ်ရန် ဘဏ်အကောင့် မရှိပါ။ ကျေးဇူးပြု၍ ဘဏ်အချက်အလက် ဦးစွာထည့်သွင်းပါ။');
+
+        mutation.mutate({
+            amount: numericAmount,
+            currency: currency,
+            security_pin: pin
+        });
     };
 
+    const isSubmitting = mutation.isPending;
+
     return (
-        <KeyboardAvoidingView
-            style={styles.root}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-            <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-                <Pressable onPress={() => router.back()} style={styles.backBtn}>
-                    <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
-                </Pressable>
-                <View style={styles.headerTextContainer}>
-                    <Text style={styles.eyebrow}>ပိုက်ဆံအိတ်</Text>
-                    <Text style={styles.title}>ငွေထုတ်ခြင်း</Text>
-                    <Text style={styles.desc}>သင်၏ မှတ်ပုံတင်ထားသောဘဏ်အကောင့်သို့ ငွေထုတ်တောင်းဆိုပါ</Text>
+        <View style={styles.root}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
+                    <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                        <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
+                    </Pressable>
+                    <View style={styles.headerTextContainer}>
+                        <Text style={styles.eyebrow}>ပိုက်ဆံအိတ်</Text>
+                        <Text style={styles.title}>ငွေထုတ်ခြင်း</Text>
+                        <Text style={styles.desc}>သင်၏ မှတ်ပုံတင်ထားသောဘဏ်အကောင့်သို့ ငွေထုတ်တောင်းဆိုပါ</Text>
+                    </View>
                 </View>
-            </View>
 
-            <ScrollView
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 20) + 40 }]}
-                showsVerticalScrollIndicator={false}
-            >
-                <View style={styles.bankBoxOuter}>
-                    <View style={styles.bankBoxInner}>
-                        <Text style={styles.bankBoxLabel}>လွှဲပြောင်းမည့်နေရာ</Text>
-                        <View style={styles.bankDetailRow}>
-                            <MaterialIcons name="account-balance" size={22} color="#10B981" style={styles.bankIcon} />
-                            <View>
-                                <Text style={styles.bankName}>{userBank.name}</Text>
-                                <Text style={styles.accountInfo}>{userBank.accountName} · {userBank.accountNumber}</Text>
-                            </View>
+                <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 20) + 40 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+                    {/* 🌟 Bank Detail Card */}
+                    <View style={styles.bankBoxOuter}>
+                        <View style={styles.bankBoxInner}>
+                            <Text style={styles.bankBoxLabel}>လွှဲပြောင်းမည့်နေရာ</Text>
+
+                            {loadingBank ? (
+                                <ActivityIndicator color="#10B981" style={{ marginVertical: 10, alignSelf: 'flex-start' }} />
+                            ) : bankInfo ? (
+                                <View style={styles.bankDetailRow}>
+                                    <MaterialIcons name="account-balance" size={22} color="#10B981" style={styles.bankIcon} />
+                                    <View>
+                                        <Text style={styles.bankName}>{bankInfo.bank_name}</Text>
+                                        <Text style={styles.accountInfo}>{bankInfo.account_name || bankInfo.account_holder_name} · {bankInfo.account_number}</Text>
+                                    </View>
+                                </View>
+                            ) : (
+                                <Text style={{ color: '#F87171', fontSize: 13, marginBottom: 12, lineHeight: 20 }}>
+                                    ဤငွေကြေး ({currency}) အတွက် မှတ်ပုံတင်ထားသော ဘဏ်အကောင့် မရှိပါ။ ငွေထုတ်ရန် ဘဏ်အကောင့် ဦးစွာထည့်သွင်းပါ။
+                                </Text>
+                            )}
+
+                            <Text style={styles.bankFooterText}>
+                                Funds will be sent to your registered bank account.
+                            </Text>
                         </View>
-                        <Text style={styles.bankFooterText}>
-                            Funds will be sent to your registered bank account.
-                        </Text>
                     </View>
-                </View>
 
-                <View style={styles.formGroup}>
-                    <Text style={styles.label}>ပမာဏ ({currency})</Text>
-                    <View style={styles.inputContainer}>
-                        <TextInput
-                            style={styles.input}
-                            keyboardType="number-pad"
-                            placeholder="e.g. 50000"
-                            placeholderTextColor="#4B5563"
-                            value={amount}
-                            onChangeText={(val) => setAmount(val.replace(/\D/g, ''))}
-                        />
-                    </View>
-                    <Text style={styles.helperText}>Available: {availableBalance.toLocaleString()} {currency}</Text>
-                </View>
-
-                <View style={styles.formGroup}>
-                    <Text style={styles.label}>လုံခြုံရေး PIN</Text>
-                    <View style={styles.pinInputContainer}>
-                        <TextInput
-                            style={styles.pinInput}
-                            keyboardType="number-pad"
-                            placeholder="••••••"
-                            placeholderTextColor="#4B5563"
-                            secureTextEntry={!showPin}
-                            maxLength={6}
-                            value={pin}
-                            onChangeText={(val) => setPin(val.replace(/\D/g, ''))}
-                        />
-                        <Pressable onPress={() => setShowPin(!showPin)} style={styles.eyeIcon}>
-                            <MaterialIcons
-                                name={showPin ? "visibility" : "visibility-off"}
-                                size={20}
-                                color="#6B7280"
+                    <View style={styles.formGroup}>
+                        <Text style={styles.label}>ပမာဏ ({currency})</Text>
+                        <View style={styles.inputContainer}>
+                            <TextInput
+                                style={styles.input}
+                                keyboardType="number-pad"
+                                placeholder={`e.g. ${currency === 'MMK' ? '50000' : '1000'}`}
+                                placeholderTextColor="#4B5563"
+                                value={amount}
+                                onChangeText={(val) => setAmount(val.replace(/\D/g, ''))}
+                                editable={!isSubmitting}
                             />
-                        </Pressable>
+                        </View>
+                        <Text style={styles.helperText}>Available: {availableBalance.toLocaleString()} {currency}</Text>
                     </View>
-                    <Text style={styles.helperText}>အတည်ပြုရန် သင်၏ ဂဏန်း ၆ လုံး PIN ထည့်ပါ</Text>
-                </View>
 
-                <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.submitBtnOuter}
-                    disabled={isSubmitting || !amount || pin.length !== 6}
-                    onPress={handleSubmit}
-                >
-                    <LinearGradient
-                        colors={['#10B981', '#059669']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={[styles.submitBtnInner, (isSubmitting || !amount || pin.length !== 6) && { opacity: 0.5 }]}
+                    <View style={styles.formGroup}>
+                        <Text style={styles.label}>လုံခြုံရေး PIN</Text>
+                        <View style={styles.pinInputContainer}>
+                            <TextInput
+                                style={styles.pinInput}
+                                keyboardType="number-pad"
+                                placeholder="••••••"
+                                placeholderTextColor="#4B5563"
+                                secureTextEntry={!showPin}
+                                maxLength={6}
+                                value={pin}
+                                onChangeText={(val) => setPin(val.replace(/\D/g, ''))}
+                                editable={!isSubmitting}
+                            />
+                            <Pressable onPress={() => setShowPin(!showPin)} style={styles.eyeIcon}>
+                                <MaterialIcons name={showPin ? "visibility" : "visibility-off"} size={20} color="#6B7280" />
+                            </Pressable>
+                        </View>
+                        <Text style={styles.helperText}>အတည်ပြုရန် သင်၏ ဂဏန်း ၆ လုံး PIN ထည့်ပါ</Text>
+                    </View>
+
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={[
+                            styles.submitBtnOuter,
+                            !(isSubmitting || !amount || pin.length !== 6 || !bankInfo) ? styles.activeGlow : { opacity: 0.5 }
+                        ]}
+                        disabled={isSubmitting || !amount || pin.length !== 6 || !bankInfo}
+                        onPress={handleSubmit}
                     >
-                        <Text style={styles.submitBtnText}>
-                            {isSubmitting ? 'လုပ်ဆောင်နေပါသည်...' : 'ငွေထုတ်တောင်းဆိုမှု တင်မည်'}
-                        </Text>
-                    </LinearGradient>
-                </TouchableOpacity>
+                        <LinearGradient
+                            colors={['#10B981', '#059669']}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            style={styles.submitBtnInner}
+                        >
+                            {isSubmitting ? (
+                                <ActivityIndicator color="#003824" />
+                            ) : (
+                                <Text style={styles.submitBtnText}>ငွေထုတ်တောင်းဆိုမှု တင်မည်</Text>
+                            )}
+                        </LinearGradient>
+                    </TouchableOpacity>
 
-            </ScrollView>
-        </KeyboardAvoidingView>
+                </ScrollView>
+            </KeyboardAvoidingView>
+
+            <Animated.View style={[
+                styles.toastContainer,
+                { transform: [{ translateY: toastAnim }], borderColor: toastData.type === 'success' ? '#10B981' : '#F87171' }
+            ]}>
+                <MaterialIcons name={toastData.type === 'success' ? 'check-circle' : 'error'} size={20} color={toastData.type === 'success' ? '#10B981' : '#F87171'} />
+                <Text style={[styles.toastText, { color: toastData.type === 'success' ? '#34D399' : '#FCA5A5' }]}>{toastData.msg}</Text>
+            </Animated.View>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: '#050A1F',
-    },
-    header: {
-        flexDirection: 'row',
-        paddingHorizontal: 20,
-        paddingBottom: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-    },
-    backBtn: {
-        marginRight: 16,
-        paddingTop: 4,
-    },
-    headerTextContainer: {
-        flex: 1,
-    },
-    eyebrow: {
-        color: '#93C5FD',
-        fontSize: 12,
-        marginBottom: 4,
-    },
-    title: {
-        color: '#F7F9FF',
-        fontSize: 26,
-        fontWeight: 'bold',
-        marginBottom: 6,
-    },
-    desc: {
-        color: '#8A9BB3',
-        fontSize: 13,
-        lineHeight: 20,
-    },
-    scrollContent: {
-        padding: 20,
-    },
+    root: { flex: 1, backgroundColor: '#050A1F' },
 
-    bankBoxOuter: {
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: 16,
-        marginBottom: 24,
-    },
-    bankBoxInner: {
-        padding: 16,
-    },
-    bankBoxLabel: {
-        color: '#8A9BB3',
-        fontSize: 12,
-        marginBottom: 12,
-    },
-    bankDetailRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    bankIcon: {
-        marginRight: 12,
-    },
-    bankName: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 2,
-    },
-    accountInfo: {
-        color: '#9CA3AF',
-        fontSize: 13,
-    },
-    bankFooterText: {
-        color: '#8A9BB3',
-        fontSize: 12,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.05)',
-    },
+    toastContainer: { position: 'absolute', top: 0, left: 20, right: 20, backgroundColor: '#0B291D', borderWidth: 1, borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 9999, zIndex: 99999 },
+    toastText: { fontSize: 13, fontWeight: 'bold', marginLeft: 8, letterSpacing: 0.5, flex: 1, textAlign: 'center' },
 
-    formGroup: {
-        marginBottom: 20,
-    },
-    label: {
-        color: '#9CA3AF',
-        fontSize: 13,
-        fontWeight: 'bold',
-        marginBottom: 8,
-    },
-    inputContainer: {
-        backgroundColor: 'rgba(5, 10, 31, 0.68)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.12)',
-        borderRadius: 12,
-    },
-    input: {
-        height: 52,
-        paddingHorizontal: 16,
-        color: '#F7F9FF',
-        fontSize: 16,
-    },
+    header: { flexDirection: 'row', paddingHorizontal: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    backBtn: { marginRight: 16, paddingTop: 4 },
+    headerTextContainer: { flex: 1 },
+    eyebrow: { color: '#93C5FD', fontSize: 12, marginBottom: 4 },
+    title: { color: '#F7F9FF', fontSize: 26, fontWeight: 'bold', marginBottom: 6 },
+    desc: { color: '#8A9BB3', fontSize: 13, lineHeight: 20 },
+    scrollContent: { padding: 20 },
 
-    pinInputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(5, 10, 31, 0.68)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.12)',
-        borderRadius: 12,
-    },
-    pinInput: {
-        flex: 1,
-        height: 52,
-        paddingHorizontal: 16,
-        color: '#F7F9FF',
-        fontSize: 16,
-        letterSpacing: 2,
-    },
-    eyeIcon: {
-        padding: 14,
-    },
+    bankBoxOuter: { backgroundColor: 'rgba(255, 255, 255, 0.03)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 16, marginBottom: 24 },
+    bankBoxInner: { padding: 16 },
+    bankBoxLabel: { color: '#8A9BB3', fontSize: 12, marginBottom: 12 },
+    bankDetailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    bankIcon: { marginRight: 12 },
+    bankName: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', marginBottom: 2 },
+    accountInfo: { color: '#9CA3AF', fontSize: 13 },
+    bankFooterText: { color: '#8A9BB3', fontSize: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.05)' },
 
-    helperText: {
-        color: '#8A9BB3',
-        fontSize: 12,
-        marginTop: 8,
-    },
+    formGroup: { marginBottom: 20 },
+    label: { color: '#9CA3AF', fontSize: 13, fontWeight: 'bold', marginBottom: 8 },
+    inputContainer: { backgroundColor: 'rgba(5, 10, 31, 0.68)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)', borderRadius: 12 },
+    input: { height: 52, paddingHorizontal: 16, color: '#F7F9FF', fontSize: 16 },
 
-    submitBtnOuter: {
-        marginTop: 10,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    submitBtnInner: {
-        height: 56,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    submitBtnText: {
-        color: '#003824',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
+    pinInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(5, 10, 31, 0.68)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)', borderRadius: 12 },
+    pinInput: { flex: 1, height: 52, paddingHorizontal: 16, color: '#F7F9FF', fontSize: 16, letterSpacing: 2 },
+    eyeIcon: { padding: 14 },
+
+    helperText: { color: '#8A9BB3', fontSize: 12, marginTop: 8 },
+
+    submitBtnOuter: { marginTop: 10, borderRadius: 12, backgroundColor: '#10B981' },
+    activeGlow: { shadowColor: '#34D399', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.6, shadowRadius: 12, elevation: 8 },
+    submitBtnInner: { height: 56, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', borderRadius: 12, overflow: 'hidden' },
+    submitBtnText: { color: '#003824', fontSize: 16, fontWeight: 'bold' },
 });

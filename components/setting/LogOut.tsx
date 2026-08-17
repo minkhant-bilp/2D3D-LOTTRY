@@ -1,25 +1,47 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Text, TouchableOpacity, View } from 'react-native';
+
+import { logoutAllFcmTokensAPI, logoutUserAPI } from '../../api/main';
+import { useAppStore } from '../../store/useAppStore';
 
 export default function LogoutButton() {
     const router = useRouter();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-    const onLogout = () => {
+    const clearAuth = useAppStore((state: any) => state.clearAuth);
+    const clearWallet = useAppStore((state: any) => state.clearWallet);
+
+    const onLogout = async () => {
         setIsLoggingOut(true);
-        setTimeout(() => {
-            setIsLoggingOut(false);
+
+        try {
+            try {
+                await logoutAllFcmTokensAPI();
+            } catch (fcmError) {
+                console.log("FCM Token clearing failed (non-fatal):", fcmError);
+            }
+
+            await logoutUserAPI();
+
+            if (clearWallet) clearWallet();
+            if (clearAuth) clearAuth();
+            await AsyncStorage.removeItem('zarmani:fcm-token-refreshed-at');
+
             router.replace('/login');
-        }, 1500);
+        } catch (error) {
+            console.log("Logout Error: ", error);
+            Alert.alert("သတိပေးချက်", "အကောင့်ထွက်ခြင်း မအောင်မြင်ပါ။ အင်တာနက်ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်မံကြိုးစားပါ။");
+            setIsLoggingOut(false);
+        }
     };
 
     return (
         <View className="w-full mt-6">
             <TouchableOpacity
-                className={`w-full flex-row items-center justify-center rounded-[14px] border border-[#ef4444]/20 bg-[#ef4444]/10 py-[18px] ${isLoggingOut ? 'opacity-60' : ''
-                    }`}
+                className={`w-full flex-row items-center justify-center rounded-[14px] border border-[#ef4444]/20 bg-[#ef4444]/10 py-[18px] ${isLoggingOut ? 'opacity-60' : ''}`}
                 onPress={() => setIsConfirmOpen(true)}
                 disabled={isLoggingOut}
                 activeOpacity={0.7}
@@ -55,8 +77,7 @@ export default function LogoutButton() {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                className={`flex-1 h-10 items-center justify-center rounded-xl bg-[#ef4444] mx-1 ${isLoggingOut ? 'opacity-70' : ''
-                                    }`}
+                                className={`flex-1 h-10 items-center justify-center rounded-xl bg-[#ef4444] mx-1 ${isLoggingOut ? 'opacity-70' : ''}`}
                                 onPress={() => {
                                     setIsConfirmOpen(false);
                                     onLogout();

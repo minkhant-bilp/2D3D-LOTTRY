@@ -15,6 +15,7 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { registerUser } from '../api/auth';
 
 const initialForm = {
     username: '',
@@ -30,6 +31,7 @@ export default function RegisterPage() {
     const insets = useSafeAreaInsets();
 
     const [form, setForm] = useState(initialForm);
+
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [showPin, setShowPin] = useState(false);
@@ -37,38 +39,47 @@ export default function RegisterPage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
 
     const handleSubmit = useCallback(async () => {
         Keyboard.dismiss();
         setError(null);
-        setSuccess(null);
+
+        if (!form.username || !form.email || !form.password) {
+            setError('ကျေးဇူးပြု၍ အချက်အလက်များကို အပြည့်အစုံထည့်ပါ။');
+            return;
+        }
 
         if (form.password !== form.password_confirmation) {
-            setError('Passwords do not match.');
+            setError('စကားဝှက်များ တူညီမှုမရှိပါ။ (Passwords do not match)');
             return;
         }
 
         if (!/^\d{6}$/.test(form.pin)) {
-            setError('Security PIN must be exactly 6 digits.');
+            setError('လုံခြုံရေး PIN သည် ဂဏန်း (၆) လုံး အတိအကျ ဖြစ်ရပါမည်။');
             return;
         }
 
         if (form.pin !== form.pin_confirmation) {
-            setError('Security PINs do not match.');
+            setError('လုံခြုံရေး PIN များ တူညီမှုမရှိပါ။ (PINs do not match)');
             return;
         }
 
         setLoading(true);
 
         try {
-            await new Promise(resolve => setTimeout(resolve, 800));
-            setSuccess('Registration successful. Redirecting...');
-            setTimeout(() => {
-                router.replace('/wallet/bank-setup');
-            }, 500);
-        } catch (err) {
-            setError('Registration failed. Please try again.');
+            await registerUser({
+                username: form.username.trim(),
+                email: form.email.trim(),
+                password: form.password,
+                password_confirmation: form.password_confirmation,
+                pin: form.pin,
+                pin_confirmation: form.pin_confirmation,
+            });
+
+            router.replace('/wallet/bank-setup');
+
+        } catch (err: any) {
+            setError(err.message || 'အကောင့်ဖွင့်ခြင်း မအောင်မြင်ပါ။');
         } finally {
             setLoading(false);
         }
@@ -76,12 +87,8 @@ export default function RegisterPage() {
 
     const updateField = useCallback((field: keyof typeof initialForm, value: string) => {
         setForm(prev => ({ ...prev, [field]: value }));
-    }, []);
-
-    const updatePinField = useCallback((field: 'pin' | 'pin_confirmation', value: string) => {
-        const numericValue = value.replace(/\D/g, '').slice(0, 6);
-        setForm(prev => ({ ...prev, [field]: numericValue }));
-    }, []);
+        if (error) setError(null);
+    }, [error]);
 
     return (
         <View style={styles.root}>
@@ -94,7 +101,7 @@ export default function RegisterPage() {
                         contentContainerStyle={[
                             styles.scrollContent,
                             {
-                                paddingTop: Math.max(insets.top + 24, 40),
+                                paddingTop: Math.max(insets.top + 16, 20),
                                 paddingBottom: Math.max(insets.bottom + 24, 40)
                             }
                         ]}
@@ -105,16 +112,16 @@ export default function RegisterPage() {
                         <View style={styles.headerContainer}>
                             <Text style={styles.brandText}>ZARMANI108</Text>
                             <Text style={styles.mainTitle}>
-                                Create an account{'\n'}and join the winning team
+                                Join us and start{'\n'}winning today
                             </Text>
                         </View>
 
                         <View style={styles.card}>
-                            <Text style={styles.cardHeaderTitle}>New Account</Text>
+                            <Text style={styles.cardHeaderTitle}>Create New Account</Text>
 
                             <View style={styles.fieldContainer}>
                                 <Text style={styles.label}>Username</Text>
-                                <View style={styles.inputWrapper}>
+                                <View style={[styles.inputWrapper, error && styles.inputErrorBorder]}>
                                     <TextInput
                                         style={styles.input}
                                         value={form.username}
@@ -122,14 +129,15 @@ export default function RegisterPage() {
                                         autoCapitalize="none"
                                         editable={!loading}
                                         placeholderTextColor="#8a9bb3"
-                                        placeholder="Enter your username"
+                                        placeholder="e.g. aungkoko"
+                                        maxLength={255}
                                     />
                                 </View>
                             </View>
 
                             <View style={styles.fieldContainer}>
                                 <Text style={styles.label}>Email Address</Text>
-                                <View style={styles.inputWrapper}>
+                                <View style={[styles.inputWrapper, error && styles.inputErrorBorder]}>
                                     <TextInput
                                         style={styles.input}
                                         value={form.email}
@@ -138,14 +146,14 @@ export default function RegisterPage() {
                                         autoCapitalize="none"
                                         editable={!loading}
                                         placeholderTextColor="#8a9bb3"
-                                        placeholder="Enter your email"
+                                        placeholder="user@example.com"
                                     />
                                 </View>
                             </View>
 
                             <View style={styles.fieldContainer}>
                                 <Text style={styles.label}>Password</Text>
-                                <View style={styles.inputWrapper}>
+                                <View style={[styles.inputWrapper, error && styles.inputErrorBorder]}>
                                     <TextInput
                                         style={styles.passwordInput}
                                         value={form.password}
@@ -155,23 +163,15 @@ export default function RegisterPage() {
                                         placeholderTextColor="#8a9bb3"
                                         placeholder="At least 8 characters"
                                     />
-                                    <Pressable
-                                        style={styles.eyeButton}
-                                        onPress={() => setShowPassword(p => !p)}
-                                        hitSlop={10}
-                                    >
-                                        <Feather
-                                            name={showPassword ? "eye" : "eye-off"}
-                                            size={18}
-                                            color="#8a9bb3"
-                                        />
+                                    <Pressable style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)} hitSlop={10}>
+                                        <Feather name={showPassword ? "eye" : "eye-off"} size={18} color="#8a9bb3" />
                                     </Pressable>
                                 </View>
                             </View>
 
                             <View style={styles.fieldContainer}>
                                 <Text style={styles.label}>Confirm Password</Text>
-                                <View style={styles.inputWrapper}>
+                                <View style={[styles.inputWrapper, error && styles.inputErrorBorder]}>
                                     <TextInput
                                         style={styles.passwordInput}
                                         value={form.password_confirmation}
@@ -181,84 +181,55 @@ export default function RegisterPage() {
                                         placeholderTextColor="#8a9bb3"
                                         placeholder="Re-enter password"
                                     />
-                                    <Pressable
-                                        style={styles.eyeButton}
-                                        onPress={() => setShowConfirmPassword(p => !p)}
-                                        hitSlop={10}
-                                    >
-                                        <Feather
-                                            name={showConfirmPassword ? "eye" : "eye-off"}
-                                            size={18}
-                                            color="#8a9bb3"
-                                        />
+                                    <Pressable style={styles.eyeButton} onPress={() => setShowConfirmPassword(!showConfirmPassword)} hitSlop={10}>
+                                        <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={18} color="#8a9bb3" />
                                     </Pressable>
                                 </View>
                             </View>
 
                             <View style={styles.fieldContainer}>
                                 <Text style={styles.label}>Security PIN</Text>
-                                <View style={styles.inputWrapper}>
+                                <View style={[styles.inputWrapper, error && styles.inputErrorBorder]}>
                                     <TextInput
                                         style={styles.passwordInput}
                                         value={form.pin}
-                                        onChangeText={(val) => updatePinField('pin', val)}
+                                        onChangeText={(val) => updateField('pin', val.replace(/\D/g, '').slice(0, 6))}
+                                        keyboardType="number-pad"
                                         secureTextEntry={!showPin}
-                                        keyboardType="numeric"
-                                        maxLength={6}
                                         editable={!loading}
+                                        maxLength={6}
                                         placeholderTextColor="#8a9bb3"
-                                        placeholder="6-digit PIN"
+                                        placeholder="6-digit PIN for placing bets"
                                     />
-                                    <Pressable
-                                        style={styles.eyeButton}
-                                        onPress={() => setShowPin(p => !p)}
-                                        hitSlop={10}
-                                    >
-                                        <Feather
-                                            name={showPin ? "eye" : "eye-off"}
-                                            size={18}
-                                            color="#8a9bb3"
-                                        />
+                                    <Pressable style={styles.eyeButton} onPress={() => setShowPin(!showPin)} hitSlop={10}>
+                                        <Feather name={showPin ? "eye" : "eye-off"} size={18} color="#8a9bb3" />
                                     </Pressable>
                                 </View>
                             </View>
 
                             <View style={styles.fieldContainer}>
                                 <Text style={styles.label}>Confirm Security PIN</Text>
-                                <View style={styles.inputWrapper}>
+                                <View style={[styles.inputWrapper, error && styles.inputErrorBorder]}>
                                     <TextInput
                                         style={styles.passwordInput}
                                         value={form.pin_confirmation}
-                                        onChangeText={(val) => updatePinField('pin_confirmation', val)}
+                                        onChangeText={(val) => updateField('pin_confirmation', val.replace(/\D/g, '').slice(0, 6))}
+                                        keyboardType="number-pad"
                                         secureTextEntry={!showConfirmPin}
-                                        keyboardType="numeric"
-                                        maxLength={6}
                                         editable={!loading}
+                                        maxLength={6}
                                         placeholderTextColor="#8a9bb3"
                                         placeholder="Re-enter 6-digit PIN"
                                     />
-                                    <Pressable
-                                        style={styles.eyeButton}
-                                        onPress={() => setShowConfirmPin(p => !p)}
-                                        hitSlop={10}
-                                    >
-                                        <Feather
-                                            name={showConfirmPin ? "eye" : "eye-off"}
-                                            size={18}
-                                            color="#8a9bb3"
-                                        />
+                                    <Pressable style={styles.eyeButton} onPress={() => setShowConfirmPin(!showConfirmPin)} hitSlop={10}>
+                                        <Feather name={showConfirmPin ? "eye" : "eye-off"} size={18} color="#8a9bb3" />
                                     </Pressable>
                                 </View>
                             </View>
 
                             {error && (
-                                <View style={styles.feedbackError}>
-                                    <Text style={styles.feedbackTextError}>{error}</Text>
-                                </View>
-                            )}
-                            {success && (
-                                <View style={styles.feedbackSuccess}>
-                                    <Text style={styles.feedbackTextSuccess}>{success}</Text>
+                                <View style={styles.errorContainer}>
+                                    <Text style={styles.errorText}>{error}</Text>
                                 </View>
                             )}
 
@@ -292,149 +263,29 @@ export default function RegisterPage() {
 }
 
 const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: '#050A1F',
-    },
-    keyboardView: {
-        flex: 1,
-    },
-    scrollContent: {
-        flexGrow: 1,
-        justifyContent: 'flex-start',
-        paddingHorizontal: 20,
-    },
-    headerContainer: {
-        marginBottom: 32,
-    },
-    brandText: {
-        color: '#00E676',
-        fontSize: 12,
-        fontWeight: 'bold',
-        letterSpacing: 1.5,
-        marginBottom: 12,
-    },
-    mainTitle: {
-        color: '#FFFFFF',
-        fontSize: 26,
-        fontWeight: 'bold',
-        lineHeight: 36,
-    },
-    card: {
-        backgroundColor: 'rgba(15, 23, 42, 0.88)',
-        borderRadius: 24,
-        padding: 24,
-        borderWidth: 1,
-        borderColor: '#1E293B',
-    },
-    cardHeaderTitle: {
-        color: '#00E676',
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 24,
-    },
-    fieldContainer: {
-        marginBottom: 20,
-    },
-    label: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 10,
-    },
-    inputWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(5, 10, 31, 0.55)',
-        borderWidth: 1,
-        borderColor: '#1E293B',
-        borderRadius: 12,
-        height: 52,
-    },
-    input: {
-        flex: 1,
-        height: '100%',
-        paddingHorizontal: 16,
-        color: '#FFFFFF',
-        fontSize: 15,
-    },
-    passwordInput: {
-        flex: 1,
-        height: '100%',
-        paddingHorizontal: 16,
-        color: '#FFFFFF',
-        fontSize: 15,
-    },
-    eyeButton: {
-        height: '100%',
-        paddingHorizontal: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    feedbackError: {
-        backgroundColor: 'rgba(255, 77, 77, 0.1)',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 77, 77, 0.3)',
-    },
-    feedbackTextError: {
-        color: '#FF4D4D',
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    feedbackSuccess: {
-        backgroundColor: 'rgba(0, 230, 118, 0.1)',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(0, 230, 118, 0.3)',
-    },
-    feedbackTextSuccess: {
-        color: '#00E676',
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    primaryButton: {
-        backgroundColor: '#00E676',
-        height: 56,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 4,
-    },
-    buttonDisabled: {
-        opacity: 0.7,
-    },
-    buttonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    primaryButtonText: {
-        color: '#040A1F',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    buttonArrow: {
-        color: '#040A1F',
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginLeft: 4,
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 28,
-    },
-    footerText: {
-        color: '#8A9BB3',
-        fontSize: 14,
-    },
-    footerLink: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
+    root: { flex: 1, backgroundColor: '#050A1F' },
+    keyboardView: { flex: 1 },
+    scrollContent: { flexGrow: 1, justifyContent: 'flex-start', paddingHorizontal: 20 },
+    headerContainer: { marginBottom: 24 },
+    brandText: { color: '#00E676', fontSize: 12, fontWeight: 'bold', letterSpacing: 1.5, marginBottom: 8 },
+    mainTitle: { color: '#FFFFFF', fontSize: 26, fontWeight: 'bold', lineHeight: 36 },
+    card: { backgroundColor: 'rgba(15, 23, 42, 0.88)', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#1E293B' },
+    cardHeaderTitle: { color: '#00E676', fontSize: 16, fontWeight: 'bold', marginBottom: 20 },
+    fieldContainer: { marginBottom: 16 },
+    label: { color: '#FFFFFF', fontSize: 14, fontWeight: '600', marginBottom: 8 },
+    inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(5, 10, 31, 0.55)', borderWidth: 1, borderColor: '#1E293B', borderRadius: 12, height: 50 },
+    inputErrorBorder: { borderColor: 'rgba(255, 77, 77, 0.45)' },
+    input: { flex: 1, height: '100%', paddingHorizontal: 16, color: '#FFFFFF', fontSize: 15 },
+    passwordInput: { flex: 1, height: '100%', paddingHorizontal: 16, color: '#FFFFFF', fontSize: 15 },
+    eyeButton: { height: '100%', paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center' },
+    errorContainer: { backgroundColor: 'rgba(255, 77, 77, 0.1)', borderColor: 'rgba(255, 77, 77, 0.45)', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 },
+    errorText: { color: '#ffb3aa', fontSize: 13, textAlign: 'center', lineHeight: 18 },
+    primaryButton: { backgroundColor: '#00E676', height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 4 },
+    buttonDisabled: { opacity: 0.7 },
+    buttonContent: { flexDirection: 'row', alignItems: 'center' },
+    primaryButtonText: { color: '#040A1F', fontSize: 16, fontWeight: 'bold' },
+    buttonArrow: { color: '#040A1F', fontSize: 16, fontWeight: 'bold', marginLeft: 4 },
+    footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
+    footerText: { color: '#8A9BB3', fontSize: 14 },
+    footerLink: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
 });

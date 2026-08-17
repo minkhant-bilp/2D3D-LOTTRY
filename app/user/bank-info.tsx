@@ -1,92 +1,294 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { createMyBankInfoAPI, getMyBankInfoAPI, updateMyBankInfoAPI } from '../../api/main';
+import { useAppStore } from '../../store/useAppStore';
+
+type BankEntry = { code: string; label: string; currency: 'MMK' | 'THB' };
+const BANKS: BankEntry[] = [
+    { code: 'KBZ', label: 'Kanbawza Bank', currency: 'MMK' },
+    { code: 'AYA', label: 'AYA Bank', currency: 'MMK' },
+    { code: 'CB', label: 'CB Bank', currency: 'MMK' },
+    { code: 'UAB', label: 'United Amara Bank', currency: 'MMK' },
+    { code: 'YOMA', label: 'Yoma Bank', currency: 'MMK' },
+    { code: 'SCB', label: 'Siam Commercial Bank', currency: 'THB' },
+    { code: 'KBANK', label: 'Kasikorn Bank', currency: 'THB' },
+    { code: 'BBL', label: 'Bangkok Bank', currency: 'THB' },
+    { code: 'KTB', label: 'Krungthai Bank', currency: 'THB' },
+    { code: 'BAY', label: 'Bank of Ayudhya (Krungsri)', currency: 'THB' },
+    { code: 'TTB', label: 'TMBThanachart Bank', currency: 'THB' },
+    { code: 'GSB', label: 'Government Savings Bank', currency: 'THB' },
+];
+const CURRENCY_LABEL: Record<'MMK' | 'THB', string> = { MMK: 'Myanmar', THB: 'Thailand' };
+
+function bankInfoCooldownUntil(wallet: any): Date | null {
+    const nextAllowedAt = wallet?.bank_info_next_allowed_at;
+    if (!nextAllowedAt) return null;
+    const until = new Date(nextAllowedAt);
+    if (Number.isNaN(until.getTime()) || until.getTime() <= Date.now()) return null;
+    return until;
+}
+function formatCooldownDate(until: Date): string {
+    return until.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 export default function BankInfoScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const [bankName, setBankName] = useState('SCB — Siam Commercial Bank');
-    const [accountName, setAccountName] = useState('Ko Khant');
-    const [accountNumber, setAccountNumber] = useState('0985659874');
-    const [isSaved, setIsSaved] = useState(true);
+    const wallet = useAppStore((state: any) => state.wallet);
+    const refreshWallet = useAppStore((state: any) => state.refreshWallet);
+    const cooldownUntil = bankInfoCooldownUntil(wallet);
+
+    const [form, setForm] = useState({ bank_name: 'KBZ', account_name: '', account_number: '' });
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    const [showBankList, setShowBankList] = useState(false);
+    const [bankSearch, setBankSearch] = useState('');
+
+    const toastAnim = useRef(new Animated.Value(-150)).current;
+    const [toastData, setToastData] = useState({ msg: '', type: 'error' });
+    const showToast = (msg: string, type: 'success' | 'error' = 'error') => {
+        setToastData({ msg, type });
+        toastAnim.stopAnimation(); toastAnim.setValue(-150);
+        Animated.sequence([
+            Animated.timing(toastAnim, { toValue: Math.max(insets.top, 20) + 10, duration: 400, easing: Easing.out(Easing.back(1.5)), useNativeDriver: true }),
+            Animated.delay(2500),
+            Animated.timing(toastAnim, { toValue: -150, duration: 300, easing: Easing.in(Easing.ease), useNativeDriver: true })
+        ]).start();
+    };
+
+    const { data: bankInfo, isLoading } = useQuery({
+        queryKey: ['myBankInfo'],
+        queryFn: async () => {
+            try {
+                const res = await getMyBankInfoAPI();
+                return res?.data?.bank_info ?? res?.bank_info ?? null;
+            } catch (error: any) {
+                if (error?.response?.status === 404) return null;
+                throw error;
+            }
+        }
+    });
+
+    useEffect(() => {
+        if (bankInfo) {
+            setForm({
+                bank_name: bankInfo.bank_name || 'KBZ',
+                account_name: bankInfo.account_name || bankInfo.account_holder_name || '',
+                account_number: bankInfo.account_number || '',
+            });
+        }
+    }, [bankInfo]);
+
+    const mutation = useMutation({
+        mutationFn: async (payload: typeof form) => {
+            if (bankInfo) return await updateMyBankInfoAPI(payload);
+            return await createMyBankInfoAPI(payload);
+        },
+        onSuccess: (data) => {
+            showToast(data?.message || 'Bank info saved successfully.', 'success');
+            refreshWallet();
+            setShowConfirm(false);
+        },
+        onError: (error: any) => {
+            const errorData = error?.response?.data;
+            const errMsg = errorData?.errors?.domain?.[0] || errorData?.message || 'Unable to save bank info. Please try again.';
+            showToast(errMsg, 'error');
+            setShowConfirm(false);
+        }
+    });
+
+    const isSubmitting = mutation.isPending;
+
+    const handleSubmit = () => {
+        if (!form.bank_name || !form.account_name || !form.account_number) {
+            return showToast('Please fill in all fields.');
+        }
+        if (bankInfo) {
+            setShowConfirm(true);
+        } else {
+            mutation.mutate(form);
+        }
+    };
+
+    const filteredBanks = BANKS.filter(b => b.code.toLowerCase().includes(bankSearch.toLowerCase()) || b.label.toLowerCase().includes(bankSearch.toLowerCase()));
+    const activeBankLabel = BANKS.find(b => b.code === form.bank_name)?.label ?? '';
 
     return (
         <View style={styles.root}>
-            <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-                <Pressable onPress={() => router.back()} style={styles.backBtn}>
-                    <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
-                </Pressable>
-                <View style={styles.headerTextContainer}>
-                    <Text style={styles.eyebrow}>WALLET</Text>
-                    <Text style={styles.title}>Bank Info</Text>
-                </View>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
-                <View style={styles.card}>
-                    <View style={styles.cardHeader}>
-                        <View style={styles.cardHeaderLeft}>
-                            <MaterialIcons name="account-balance" size={20} color="#93C5FD" />
-                            <Text style={styles.cardTitle}>Bank account</Text>
-                        </View>
-                        {isSaved && (
-                            <View style={styles.savedBadge}>
-                                <MaterialIcons name="check-circle" size={14} color="#00e676" />
-                                <Text style={styles.savedText}>SAVED</Text>
-                            </View>
-                        )}
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>BANK</Text>
-                        <Pressable style={styles.dropdownInput}>
-                            <Text style={styles.dropdownText}>{bankName}</Text>
-                            <MaterialIcons name="keyboard-arrow-down" size={20} color="#8A9BB3" />
-                        </Pressable>
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>ACCOUNT NAME</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            value={accountName}
-                            onChangeText={setAccountName}
-                            placeholder="e.g. Aung Ko Ko"
-                            placeholderTextColor="#4A5D7A"
-                        />
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>ACCOUNT NUMBER</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            value={accountNumber}
-                            onChangeText={setAccountNumber}
-                            keyboardType="numeric"
-                            placeholder="e.g. 09123456789"
-                            placeholderTextColor="#4A5D7A"
-                        />
-                    </View>
-
-                    <Pressable style={({ pressed }) => [styles.submitBtnWrapper, pressed && { opacity: 0.8 }]}>
-                        <LinearGradient
-                            colors={['#3B82F6', '#6366F1']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.submitBtn}
-                        >
-                            <MaterialIcons name="save" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                            <Text style={styles.submitBtnText}>Update Bank Info</Text>
-                        </LinearGradient>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
+                    <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                        <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
                     </Pressable>
+                    <View style={styles.headerTextContainer}>
+                        <Text style={styles.eyebrow}>WALLET</Text>
+                        <Text style={styles.title}>Bank Info</Text>
+                    </View>
                 </View>
 
-            </ScrollView>
+                {isLoading ? (
+                    <ActivityIndicator size="large" color="#3B82F6" style={{ marginTop: 60 }} />
+                ) : (
+                    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+                        <View style={styles.card}>
+                            <View style={styles.cardHeader}>
+                                <View style={styles.cardHeaderLeft}>
+                                    <MaterialIcons name="account-balance" size={20} color="#93C5FD" />
+                                    <Text style={styles.cardTitle}>Bank account</Text>
+                                </View>
+                                {bankInfo && (
+                                    <View style={styles.savedBadge}>
+                                        <MaterialIcons name="check-circle" size={14} color="#00e676" />
+                                        <Text style={styles.savedText}>SAVED</Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            <View style={styles.formGroup}>
+                                <Text style={styles.label}>BANK</Text>
+                                <View style={[styles.dropdownInput, showBankList && { borderColor: 'rgba(59, 130, 246, 0.5)' }]}>
+                                    {showBankList ? (
+                                        <TextInput
+                                            style={[styles.textInput, { flex: 1, paddingHorizontal: 0, paddingVertical: 0, borderWidth: 0 }]}
+                                            autoFocus
+                                            value={bankSearch}
+                                            onChangeText={setBankSearch}
+                                            placeholder="Search bank..."
+                                            placeholderTextColor="#4A5D7A"
+                                            onBlur={() => setTimeout(() => setShowBankList(false), 200)}
+                                        />
+                                    ) : (
+                                        <Pressable style={{ flex: 1 }} onPress={() => { setShowBankList(true); setBankSearch(''); }}>
+                                            <Text style={styles.dropdownText}>{form.bank_name} — {activeBankLabel}</Text>
+                                        </Pressable>
+                                    )}
+                                    <MaterialIcons name={showBankList ? "expand-less" : "expand-more"} size={20} color="#8A9BB3" />
+                                </View>
+
+                                {showBankList && (
+                                    <View style={styles.dropdownBox}>
+                                        <ScrollView
+                                            style={{ maxHeight: 250 }}
+                                            nestedScrollEnabled={true}
+                                            keyboardShouldPersistTaps="handled"
+                                        >
+                                            {['MMK', 'THB'].map((cur: any) => {
+                                                const items = filteredBanks.filter(b => b.currency === cur);
+                                                if (items.length === 0) return null;
+                                                return (
+                                                    <View key={cur}>
+                                                        <Text style={styles.dropdownHeader}>{CURRENCY_LABEL[cur as 'MMK' | 'THB']}</Text>
+                                                        {items.map(b => (
+                                                            <Pressable
+                                                                key={b.code}
+                                                                style={[styles.dropdownItem, form.bank_name === b.code && styles.dropdownItemActive]}
+                                                                onPress={() => { setForm({ ...form, bank_name: b.code }); setShowBankList(false); }}
+                                                            >
+                                                                <Text style={[styles.dropdownItemCode, form.bank_name === b.code && { color: '#93C5FD' }]}>{b.code}</Text>
+                                                                <Text style={styles.dropdownItemLabel}>{b.label}</Text>
+                                                                {form.bank_name === b.code && <MaterialIcons name="check" size={16} color="#93C5FD" style={{ marginLeft: 'auto' }} />}
+                                                            </Pressable>
+                                                        ))}
+                                                    </View>
+                                                );
+                                            })}
+                                            {filteredBanks.length === 0 && <Text style={{ color: '#4A5D7A', padding: 16, textAlign: 'center' }}>No banks found</Text>}
+                                        </ScrollView>
+                                    </View>
+                                )}
+                            </View>
+
+                            <View style={styles.formGroup}>
+                                <Text style={styles.label}>ACCOUNT NAME</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={form.account_name}
+                                    onChangeText={(val) => setForm({ ...form, account_name: val })}
+                                    placeholder="e.g. Aung Ko Ko"
+                                    placeholderTextColor="#4A5D7A"
+                                />
+                            </View>
+
+                            <View style={styles.formGroup}>
+                                <Text style={styles.label}>ACCOUNT NUMBER</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={form.account_number}
+                                    onChangeText={(val) => setForm({ ...form, account_number: val })}
+                                    keyboardType="numeric"
+                                    placeholder="e.g. 09123456789"
+                                    placeholderTextColor="#4A5D7A"
+                                />
+                            </View>
+
+                            {cooldownUntil && (
+                                <View style={styles.cooldownBox}>
+                                    <Text style={styles.cooldownText}>Bank details can only be changed once every 30 days. You can update again on {formatCooldownDate(cooldownUntil)}.</Text>
+                                </View>
+                            )}
+
+                            <Pressable
+                                onPress={handleSubmit}
+                                disabled={!!cooldownUntil || isSubmitting}
+                                style={({ pressed }) => [styles.submitBtnWrapper, (pressed || !!cooldownUntil) && { opacity: 0.8 }]}
+                            >
+                                <LinearGradient
+                                    colors={['#3B82F6', '#6366F1']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.submitBtn}
+                                >
+                                    {isSubmitting ? (
+                                        <ActivityIndicator color="#FFFFFF" />
+                                    ) : (
+                                        <>
+                                            <MaterialIcons name={bankInfo ? "save" : "add-circle"} size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                                            <Text style={styles.submitBtnText}>{bankInfo ? 'Update Bank Info' : 'Create Bank Info'}</Text>
+                                        </>
+                                    )}
+                                </LinearGradient>
+                            </Pressable>
+                        </View>
+
+                    </ScrollView>
+                )}
+            </KeyboardAvoidingView>
+
+            <Modal visible={showConfirm} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <MaterialIcons name="warning" size={24} color="#F59E0B" />
+                            <Text style={styles.modalTitle}>Update Bank Info?</Text>
+                        </View>
+                        <Text style={styles.modalDesc}>Changing your bank details will lock further updates for 30 days. Withdrawals will be sent to the new account. Proceed?</Text>
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setShowConfirm(false)}>
+                                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.modalBtnConfirm} onPress={() => mutation.mutate(form)}>
+                                <LinearGradient colors={['#3B82F6', '#6366F1']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.modalBtnConfirmInner}>
+                                    {isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalBtnConfirmText}>Yes, Update</Text>}
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            <Animated.View style={[styles.toastContainer, { transform: [{ translateY: toastAnim }], borderColor: toastData.type === 'success' ? '#10B981' : '#F87171' }]}>
+                <MaterialIcons name={toastData.type === 'success' ? 'check-circle' : 'error'} size={20} color={toastData.type === 'success' ? '#10B981' : '#F87171'} />
+                <Text style={[styles.toastText, { color: toastData.type === 'success' ? '#34D399' : '#FCA5A5' }]}>{toastData.msg}</Text>
+            </Animated.View>
         </View>
     );
 }
@@ -133,7 +335,7 @@ const styles = StyleSheet.create({
     },
     savedText: { color: '#00e676', fontSize: 10, fontWeight: 'bold', marginLeft: 4, letterSpacing: 0.5 },
 
-    inputGroup: { marginBottom: 20 },
+    formGroup: { marginBottom: 20 },
     label: { color: '#4A5D7A', fontSize: 11, fontWeight: 'bold', letterSpacing: 1.5, marginBottom: 8 },
     textInput: {
         backgroundColor: 'rgba(5, 10, 31, 0.68)',
@@ -157,6 +359,38 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
     },
     dropdownText: { color: '#F7F9FF', fontSize: 15 },
+
+    dropdownBox: {
+        marginTop: 8,
+        backgroundColor: '#080E28',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        overflow: 'hidden'
+    },
+    dropdownHeader: { backgroundColor: 'rgba(255,255,255,0.03)', color: '#4A5D7A', fontSize: 10, fontWeight: 'bold', paddingHorizontal: 12, paddingVertical: 8, textTransform: 'uppercase' },
+    dropdownItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    dropdownItemActive: { backgroundColor: 'rgba(59, 130, 246, 0.12)' },
+    dropdownItemCode: { color: '#E2E8F0', fontSize: 14, fontWeight: 'bold', width: 60 },
+    dropdownItemLabel: { color: '#8A9BB3', fontSize: 13, flex: 1 },
+
+    cooldownBox: { backgroundColor: 'rgba(245, 158, 11, 0.08)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.25)', borderRadius: 12, padding: 12, marginBottom: 20 },
+    cooldownText: { color: '#FEF3C7', fontSize: 13, lineHeight: 20 },
+
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', padding: 20 },
+    modalContent: { backgroundColor: '#080E28', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 24, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+    modalTitle: { color: '#E2E8F0', fontSize: 18, fontWeight: 'bold' },
+    modalDesc: { color: '#8A9BB3', fontSize: 14, lineHeight: 22, marginBottom: 24 },
+    modalActions: { gap: 12 },
+    modalBtnConfirm: { borderRadius: 12, overflow: 'hidden' },
+    modalBtnConfirmInner: { height: 50, alignItems: 'center', justifyContent: 'center' },
+    modalBtnConfirmText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+    modalBtnCancel: { height: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    modalBtnCancelText: { color: '#8A9BB3', fontSize: 16, fontWeight: 'bold' },
+
+    toastContainer: { position: 'absolute', top: 0, left: 20, right: 20, backgroundColor: '#0B291D', borderWidth: 1, borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 9999, zIndex: 99999 },
+    toastText: { fontSize: 13, fontWeight: 'bold', marginLeft: 8, letterSpacing: 0.5, flex: 1, textAlign: 'center' },
 
     submitBtnWrapper: { marginTop: 10, borderRadius: 12, overflow: 'hidden' },
     submitBtn: {

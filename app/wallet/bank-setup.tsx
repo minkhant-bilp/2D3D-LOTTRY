@@ -1,3 +1,4 @@
+import { clearToken, setWalletCurrency, setupBankInfo } from '@/api/auth';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -31,8 +32,7 @@ const BANKS_DATA: BankInfo[] = [
     { code: 'CB', label: 'CB Bank', currency: 'MMK' },
     { code: 'UAB', label: 'United Amara Bank', currency: 'MMK' },
     { code: 'YOMA', label: 'Yoma Bank', currency: 'MMK' },
-    { code: 'WAVE', label: 'Wave Money', currency: 'MMK' },
-    { code: 'KPay', label: 'KBZPay', currency: 'MMK' },
+    { code: 'SCB', label: 'Siam Commercial Bank', currency: 'THB' },
     { code: 'KBANK', label: 'Kasikorn Bank', currency: 'THB' },
     { code: 'BBL', label: 'Bangkok Bank', currency: 'THB' },
     { code: 'KTB', label: 'Krungthai Bank', currency: 'THB' },
@@ -45,7 +45,6 @@ export default function BankSetupPage() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const [currencyLocked, setCurrencyLocked] = useState(false);
     const [currency, setCurrency] = useState<WalletCurrency>('MMK');
     const [bankName, setBankName] = useState<string>('KBZ');
     const [accountName, setAccountName] = useState('');
@@ -83,6 +82,18 @@ export default function BankSetupPage() {
         Keyboard.dismiss();
     }, []);
 
+    const handleLogout = useCallback(async () => {
+        setIsSubmitting(true);
+        try {
+            await clearToken();
+            router.replace('/login');
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [router]);
+
     const handleSubmit = useCallback(async () => {
         Keyboard.dismiss();
         setError(null);
@@ -95,14 +106,21 @@ export default function BankSetupPage() {
         setIsSubmitting(true);
 
         try {
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await setWalletCurrency(currency);
+
+            await setupBankInfo({
+                bank_name: bankName,
+                account_name: accountName.trim(),
+                account_number: accountNumber.trim(),
+            });
+
             router.replace('/(tabs)');
-        } catch (err) {
-            setError('Setup failed. Please try again.');
+        } catch (err: any) {
+            setError(err.message || 'Setup failed. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
-    }, [bankName, accountName, accountNumber, router]);
+    }, [currency, bankName, accountName, accountNumber, router]);
 
     return (
         <View style={styles.root}>
@@ -253,6 +271,16 @@ export default function BankSetupPage() {
                                     <Text style={styles.submitBtnText}>CONFIRM & ENTER</Text>
                                 )}
                             </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.logoutBtn}
+                                activeOpacity={0.6}
+                                onPress={handleLogout}
+                                disabled={isSubmitting}
+                            >
+                                <Text style={styles.logoutBtnText}>Log out and use another account</Text>
+                            </TouchableOpacity>
+
                         </View>
                     </ScrollView>
                 </TouchableWithoutFeedback>
@@ -296,4 +324,6 @@ const styles = StyleSheet.create({
     submitBtn: { backgroundColor: '#00e676', height: 56, width: '100%', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 10, shadowColor: '#00e676', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
     submitBtnDisabled: { opacity: 0.6 },
     submitBtnText: { color: '#003824', fontSize: 15, fontWeight: '800', letterSpacing: 0.5 },
+    logoutBtn: { marginTop: 24, alignItems: 'center', paddingVertical: 8 },
+    logoutBtnText: { color: '#8a9bb3', fontSize: 13, textDecorationLine: 'underline' },
 });

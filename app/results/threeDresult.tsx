@@ -1,58 +1,20 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { listTwoDResultsLastFiveDays } from '../../api/main';
+import { getThreeDHistoryAPI } from '../../api/main';
 
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+type ThreeDHistoryEntry = { threed: string; stock_date: string; };
 
-const OPEN_TIME_PERIODS: Record<string, string> = {
-    '12:01:00': 'Morning',
-    '16:30:00': 'Evening',
-};
+function formatDrawDate(value: string): string {
+    if (!value) return '';
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return value;
 
-type ResultEntry = { period: string; time: string; number: string; };
-type HistoryDay = { id: string; date: string; results: ResultEntry[]; };
-type TwoDResult = { twod?: string | null; stock_date?: string | null; open_time?: string | null; };
-
-function formatStockDate(date: string) {
-    const [, month, day] = date.split('-');
-    const m = parseInt(month ?? '1', 10);
-    const d = parseInt(day ?? '1', 10);
-    const year = date.slice(0, 4);
-    return `${d} ${MONTH_NAMES[m - 1] ?? ''} ${year}`;
-}
-
-function formatOpenTime(time: string) {
-    const [h, m] = time.split(':');
-    const hour = parseInt(h ?? '0', 10);
-    const suffix = hour >= 12 ? 'PM' : 'AM';
-    const h12 = hour % 12 || 12;
-    return `${h12}:${m} ${suffix}`;
-}
-
-function mapToHistoryDays(results: TwoDResult[]): HistoryDay[] {
-    const byDate = new Map<string, TwoDResult[]>();
-    for (const r of results) {
-        const key = r.stock_date ?? 'Unknown';
-        if (!byDate.has(key)) byDate.set(key, []);
-        byDate.get(key)!.push(r);
-    }
-
-    return [...byDate.entries()].map(([date, entries]) => ({
-        id: date,
-        date: date === 'Unknown' ? date : formatStockDate(date),
-        results: [...entries]
-            .sort((a, b) => (a.open_time ?? '').localeCompare(b.open_time ?? ''))
-            .map((r) => ({
-                period: OPEN_TIME_PERIODS[r.open_time ?? ''] ?? (r.open_time ? formatOpenTime(r.open_time) : '—'),
-                time: r.open_time != null ? formatOpenTime(r.open_time) : '—',
-                number: r.twod ?? '—',
-            })),
-    }));
+    return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 const RESULT_TABS = [
@@ -60,22 +22,24 @@ const RESULT_TABS = [
     { id: '3d', to: '/results/threeDresult', label: '3D Results', description: 'Three-digit draws' },
 ];
 
-export default function TwoDResultsScreen() {
+export default function ThreeDResultsScreen() {
     const router = useRouter();
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
 
-    const { data: rawResults, isLoading, isError, error } = useQuery({
-        queryKey: ['twoDResultsLastFiveDays'],
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: ['threeDHistory'],
         queryFn: async () => {
-            const res = await listTwoDResultsLastFiveDays();
-            return res?.data?.two_d_results || res?.two_d_results || [];
+            const res = await getThreeDHistoryAPI();
+            return {
+                items: res?.data?.three_d_history || res?.three_d_history || [],
+                stale: res?.data?.stale || res?.stale || false
+            };
         },
     });
 
-    const historyDays = useMemo(() => {
-        return mapToHistoryDays(rawResults || []);
-    }, [rawResults]);
+    const items: ThreeDHistoryEntry[] = data?.items || [];
+    const isStale = data?.stale || false;
 
     return (
         <View style={styles.root}>
@@ -96,7 +60,7 @@ export default function TwoDResultsScreen() {
 
                 <View style={styles.tabsContainer}>
                     {RESULT_TABS.map((tab) => {
-                        const isActive = pathname.includes('twoDresult') && tab.id === '2d';
+                        const isActive = pathname.includes('threeDresult') && tab.id === '3d';
                         return (
                             <Pressable
                                 key={tab.id}
@@ -113,34 +77,32 @@ export default function TwoDResultsScreen() {
                 </View>
 
                 {isLoading ? (
-                    <ActivityIndicator size="large" color="#00e676" style={{ marginTop: 60 }} />
+                    <ActivityIndicator size="large" color="#51e1a5" style={{ marginTop: 60 }} />
                 ) : isError ? (
                     <View style={styles.errorBox}>
                         <Text style={styles.errorText}>
-                            {(error as any)?.message || 'Unable to load 2D results. Please try again.'}
+                            {(error as any)?.message || 'Unable to load 3D results.'}
                         </Text>
                     </View>
-                ) : historyDays.length === 0 ? (
+                ) : items.length === 0 ? (
                     <View style={styles.emptyState}>
                         <MaterialIcons name="inbox" size={48} color="#2A3A5C" />
                         <Text style={styles.emptyTitle}>No data here</Text>
-                        <Text style={styles.emptyDesc}>No 2D results available yet.</Text>
+                        <Text style={styles.emptyDesc}>No 3D results available yet.</Text>
                     </View>
                 ) : (
                     <View style={styles.listContainer}>
-                        {historyDays.map((day) => (
-                            <View key={day.id} style={styles.dayCard}>
-                                <Text style={styles.dayDate}>{day.date}</Text>
+                        {isStale && (
+                            <View style={styles.staleWarning}>
+                                <MaterialIcons name="cloud-off" size={16} color="rgba(252, 211, 77, 0.9)" />
+                                <Text style={styles.staleText}>Showing the last known results — the live feed is unreachable.</Text>
+                            </View>
+                        )}
 
-                                <View style={styles.resultsGrid}>
-                                    {day.results.map((res, idx) => (
-                                        <View key={`${day.id}-${idx}`} style={styles.resultBox}>
-                                            <Text style={styles.resPeriod}>{res.period}</Text>
-                                            <Text style={styles.resTime}>{res.time}</Text>
-                                            <Text style={styles.resNumber}>{res.number}</Text>
-                                        </View>
-                                    ))}
-                                </View>
+                        {items.map((item) => (
+                            <View key={item.stock_date} style={styles.resultCard}>
+                                <Text style={styles.resultDate}>{formatDrawDate(item.stock_date)}</Text>
+                                <Text style={styles.resultNumber}>{item.threed}</Text>
                             </View>
                         ))}
                     </View>
@@ -180,23 +142,30 @@ const styles = StyleSheet.create({
     tabLabelActive: { color: '#10B981' },
     tabDesc: { color: '#8A9BB3', fontSize: 11 },
 
-    listContainer: { gap: 16 },
-    dayCard: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 16 },
-    dayDate: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', marginBottom: 16 },
-    resultsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 },
-    resultBox: {
-        width: '48%',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    listContainer: {
+        backgroundColor: 'rgba(255, 255, 255, 0.02)',
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 12,
-        paddingVertical: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
+        borderRadius: 16,
+        padding: 16,
     },
-    resPeriod: { color: '#8A9BB3', fontSize: 13, marginBottom: 2 },
-    resTime: { color: '#4B5563', fontSize: 11, marginBottom: 8 },
-    resNumber: { color: '#00e676', fontSize: 26, fontWeight: 'bold' },
+
+    staleWarning: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 },
+    staleText: { color: 'rgba(252, 211, 77, 0.9)', fontSize: 12, flex: 1 },
+
+    resultCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 8,
+    },
+    resultDate: { color: '#8A9BB3', fontSize: 13 },
+    resultNumber: { color: '#51e1a5', fontSize: 18, fontWeight: 'bold', letterSpacing: 4 },
 
     errorBox: { backgroundColor: 'rgba(255, 77, 77, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 77, 77, 0.4)', borderRadius: 12, padding: 12 },
     errorText: { color: '#ff9b93', fontSize: 13 },

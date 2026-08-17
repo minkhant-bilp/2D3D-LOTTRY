@@ -15,6 +15,7 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { loginUser } from '../api/auth';
 
 const initialForm = {
     email: '',
@@ -28,20 +29,31 @@ export default function LoginPage() {
     const [form, setForm] = useState(initialForm);
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = useCallback(async () => {
+        if (!form.email || !form.password) {
+            setError('ကျေးဇူးပြု၍ အီးမေးလ်နှင့် စကားဝှက်ကို အပြည့်အစုံထည့်ပါ။');
+            return;
+        }
+
         Keyboard.dismiss();
         setLoading(true);
+        setError(null);
 
         try {
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await loginUser({
+                email: form.email.trim(),
+                password: form.password,
+            });
+
             router.replace('/(tabs)');
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setError(err.message || 'အကောင့်ဝင်ခြင်း မအောင်မြင်ပါ။');
         } finally {
             setLoading(false);
         }
-    }, [router]);
+    }, [form, router]);
 
     const togglePassword = useCallback(() => {
         setShowPassword(prev => !prev);
@@ -49,7 +61,8 @@ export default function LoginPage() {
 
     const updateField = useCallback((field: keyof typeof initialForm, value: string) => {
         setForm(prev => ({ ...prev, [field]: value }));
-    }, []);
+        if (error) setError(null);
+    }, [error]);
 
     return (
         <View style={styles.root}>
@@ -82,7 +95,7 @@ export default function LoginPage() {
 
                             <View style={styles.fieldContainer}>
                                 <Text style={styles.label}>Email Address</Text>
-                                <View style={styles.inputWrapper}>
+                                <View style={[styles.inputWrapper, error && styles.inputErrorBorder]}>
                                     <TextInput
                                         style={styles.input}
                                         value={form.email}
@@ -91,13 +104,14 @@ export default function LoginPage() {
                                         autoCapitalize="none"
                                         editable={!loading}
                                         placeholderTextColor="#8a9bb3"
+                                        placeholder="user@example.com"
                                     />
                                 </View>
                             </View>
 
                             <View style={styles.fieldContainer}>
                                 <Text style={styles.label}>Password</Text>
-                                <View style={styles.inputWrapper}>
+                                <View style={[styles.inputWrapper, error && styles.inputErrorBorder]}>
                                     <TextInput
                                         style={styles.passwordInput}
                                         value={form.password}
@@ -105,6 +119,7 @@ export default function LoginPage() {
                                         secureTextEntry={!showPassword}
                                         editable={!loading}
                                         placeholderTextColor="#8a9bb3"
+                                        placeholder="••••••••"
                                     />
                                     <Pressable
                                         style={styles.eyeButton}
@@ -119,6 +134,12 @@ export default function LoginPage() {
                                     </Pressable>
                                 </View>
                             </View>
+
+                            {error && (
+                                <View style={styles.errorContainer}>
+                                    <Text style={styles.errorText}>{error}</Text>
+                                </View>
+                            )}
 
                             <Pressable
                                 style={[styles.primaryButton, loading && styles.buttonDisabled]}
@@ -209,6 +230,9 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         height: 52,
     },
+    inputErrorBorder: {
+        borderColor: 'rgba(255, 77, 77, 0.45)',
+    },
     input: {
         flex: 1,
         height: '100%',
@@ -229,13 +253,29 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+
+    errorContainer: {
+        backgroundColor: 'rgba(255, 77, 77, 0.1)',
+        borderColor: 'rgba(255, 77, 77, 0.45)',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 20,
+    },
+    errorText: {
+        color: '#ffb3aa',
+        fontSize: 13,
+        textAlign: 'center',
+        lineHeight: 18,
+    },
+
     primaryButton: {
         backgroundColor: '#00E676',
         height: 56,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 12,
+        marginTop: 4,
     },
     buttonDisabled: {
         opacity: 0.7,

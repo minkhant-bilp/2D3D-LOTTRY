@@ -1,26 +1,56 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { getMe } from '../../api/main';
+import { useAppStore } from '../../store/useAppStore';
 
 export default function ProfileWalletCard() {
     const [copied, setCopied] = useState(false);
 
-    const displayName = "Khant Khant";
-    const fullUid = "A23F3B1A...";
-    const avatarText = "KH";
-    const balance = "2,300 THB";
+    const wallet = useAppStore((state: any) => state.wallet);
+
+    const { data: user, isLoading: isUserLoading } = useQuery({
+        queryKey: ['me'],
+        queryFn: async () => {
+            const res = await getMe();
+            return res?.data?.user || res?.user || null;
+        },
+    });
+
+    const displayName = useMemo(() => {
+        if (isUserLoading) return 'Loading...';
+        const name = user?.name?.trim();
+        if (name && name.length > 0) return name;
+        if (user?.email && user.email.length > 0) return user.email;
+        return 'Unknown User';
+    }, [user, isUserLoading]);
+
+    const avatarText = useMemo(() => {
+        if (isUserLoading) return '..';
+        return displayName.slice(0, 2).toUpperCase();
+    }, [displayName, isUserLoading]);
+
+    const fullUid = user ? (user.uuid ?? String(user.id)) : null;
+    const trimmedUid = fullUid
+        ? (fullUid.includes('-') ? fullUid.split('-')[0] + '...' : fullUid)
+        : '-';
 
     const copyUid = async () => {
+        if (!fullUid) return;
         try {
             await Clipboard.setStringAsync(fullUid);
             setCopied(true);
             setTimeout(() => setCopied(false), 1200);
         } catch (error) {
-            console.log(error);
+            console.log("Copy Error: ", error);
         }
     };
+
+    const isVip = user?.role === 'vip';
 
     return (
         <LinearGradient
@@ -38,11 +68,17 @@ export default function ProfileWalletCard() {
                     end={{ x: 1, y: 1 }}
                     style={styles.avatar}
                 >
-                    <Text style={styles.avatarText}>{avatarText}</Text>
+                    {isUserLoading ? (
+                        <ActivityIndicator color="#003824" />
+                    ) : (
+                        <Text style={styles.avatarText}>{avatarText}</Text>
+                    )}
                 </LinearGradient>
 
                 <View style={styles.infoContainer}>
-                    <Text style={styles.nameText} numberOfLines={1}>{displayName}</Text>
+                    <Text style={styles.nameText} numberOfLines={1}>
+                        {displayName}
+                    </Text>
 
                     <View style={styles.idRow}>
                         <Pressable
@@ -51,8 +87,9 @@ export default function ProfileWalletCard() {
                                 pressed && styles.idBadgePressed
                             ]}
                             onPress={copyUid}
+                            disabled={!user}
                         >
-                            <Text style={styles.idText}>ID: {fullUid}</Text>
+                            <Text style={styles.idText}>ID: {trimmedUid}</Text>
                             <MaterialIcons
                                 name={copied ? "check" : "content-copy"}
                                 size={14}
@@ -60,14 +97,29 @@ export default function ProfileWalletCard() {
                             />
                         </Pressable>
 
-                        <View style={styles.userBadge}>
-                            <Text style={styles.userText}>USER</Text>
-                        </View>
+                        {user?.role && (
+                            <View style={[styles.userBadge, isVip && styles.vipBadge]}>
+                                {isVip && (
+                                    <MaterialIcons name="workspace-premium" size={12} color="#FBBF24" style={{ marginRight: 4 }} />
+                                )}
+                                <Text style={[styles.userText, isVip && styles.vipText]}>
+                                    {String(user.role).toUpperCase()}
+                                </Text>
+                            </View>
+                        )}
                     </View>
 
-                    <View style={styles.balanceBadge}>
-                        <Text style={styles.balanceText}>{balance}</Text>
-                    </View>
+                    {isUserLoading ? (
+                        <View style={styles.balanceBadge}>
+                            <Text style={[styles.balanceText, { color: 'rgba(255,255,255,0.3)' }]}>---</Text>
+                        </View>
+                    ) : wallet ? (
+                        <View style={styles.balanceBadge}>
+                            <Text style={styles.balanceText}>
+                                {Number(wallet.balance).toLocaleString()} {wallet.currency}
+                            </Text>
+                        </View>
+                    ) : null}
                 </View>
             </View>
         </LinearGradient>
@@ -127,6 +179,7 @@ const styles = StyleSheet.create({
     idRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        flexWrap: 'wrap',
         gap: 8,
     },
     idBadge: {
@@ -149,8 +202,11 @@ const styles = StyleSheet.create({
         color: '#00e676',
         letterSpacing: 0.5,
     },
+
     userBadge: {
-        paddingHorizontal: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 20,
         borderWidth: 1,
@@ -164,6 +220,15 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
         color: '#93c5fd',
     },
+
+    vipBadge: {
+        borderColor: 'rgba(251, 191, 36, 0.3)',
+        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+    },
+    vipText: {
+        color: '#FBBF24',
+    },
+
     balanceBadge: {
         paddingHorizontal: 14,
         paddingVertical: 6,

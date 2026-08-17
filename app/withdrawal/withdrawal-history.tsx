@@ -1,8 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { listWithdrawalsAPI } from '../../api/main';
+import { listenForWithdrawalNotifications } from '../../utils/withdrawalNotificationBus';
 
 type Withdrawal = {
     id: string;
@@ -26,31 +29,47 @@ function formatDate(iso: string) {
 export default function WithdrawalHistoryScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const queryClient = useQueryClient();
 
-    const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    const load = async () => {
-        setLoading(true);
-        try {
-            setTimeout(() => {
-                setWithdrawals([]);
-                setLoading(false);
-            }, 800);
-        } catch {
-            setError('Unable to load withdrawal history. Please try again.');
-            setLoading(false);
+    const {
+        data,
+        isLoading,
+        isError,
+        error,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage
+    } = useInfiniteQuery({
+        queryKey: ['withdrawals'],
+        queryFn: async ({ pageParam = 1 }) => {
+            const res = await listWithdrawalsAPI({ page: pageParam, page_size: 20 });
+            return {
+                withdrawals: res.withdrawals || [],
+                page: pageParam,
+            };
+        },
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => {
+            return lastPage.withdrawals.length === 20 ? lastPage.page + 1 : undefined;
         }
-    };
+    });
 
     useEffect(() => {
-        load();
-    }, []);
+        const unsubscribe = listenForWithdrawalNotifications(() => {
+            console.log("🔄 [DEBUG] Withdrawal Notification Received. Refreshing Data...");
 
-    const completedCount = withdrawals.filter((w) => w.status === 'COMPLETED').length;
-    const pendingCount = withdrawals.filter((w) => w.status === 'PENDING').length;
-    const totalWithdrawn = withdrawals.filter((w) => w.status === 'COMPLETED').reduce((s, w) => s + w.amount, 0);
+            queryClient.invalidateQueries({ queryKey: ['withdrawals'] });
+        });
+        return () => unsubscribe();
+    }, [queryClient]);
+
+    const withdrawals = useMemo(() => {
+        return data?.pages.flatMap((page) => page.withdrawals) || [];
+    }, [data]);
+
+    const completedCount = withdrawals.filter((w: Withdrawal) => w.status === 'COMPLETED').length;
+    const pendingCount = withdrawals.filter((w: Withdrawal) => w.status === 'PENDING').length;
+    const totalWithdrawn = withdrawals.filter((w: Withdrawal) => w.status === 'COMPLETED').reduce((s: number, w: Withdrawal) => s + w.amount, 0);
     const currency = withdrawals[0]?.currency ?? 'MMK';
 
     return (
@@ -92,11 +111,13 @@ export default function WithdrawalHistoryScreen() {
                     </View>
                 </View>
 
-                {loading ? (
+                {isLoading ? (
                     <ActivityIndicator size="large" color="#00e676" style={{ marginTop: 60 }} />
-                ) : error ? (
+                ) : isError ? (
                     <View style={styles.emptyState}>
-                        <Text style={[styles.emptyDesc, { color: '#EF4444' }]}>{error}</Text>
+                        <Text style={[styles.emptyDesc, { color: '#EF4444' }]}>
+                            {error?.message || 'Unable to load withdrawal history. Please try again.'}
+                        </Text>
                     </View>
                 ) : withdrawals.length === 0 ? (
                     <View style={styles.emptyState}>
@@ -108,13 +129,13 @@ export default function WithdrawalHistoryScreen() {
                     </View>
                 ) : (
                     <View style={styles.listContainer}>
-                        {withdrawals.map((w) => {
+                        {withdrawals.map((w: Withdrawal) => {
                             const status = STATUS_CONFIG[w.status];
                             return (
                                 <Pressable key={w.id} style={styles.listItem}>
                                     <View style={styles.listLeft}>
                                         <Text style={styles.listTitle}>Withdrawal</Text>
-                                        <Text style={styles.listDate}>{formatDate(w.created_at)} · {w.bank_snapshot.bank_name}</Text>
+                                        <Text style={styles.listDate}>{formatDate(w.created_at)} · {w.bank_snapshot?.bank_name}</Text>
                                     </View>
                                     <View style={styles.listRight}>
                                         <Text style={styles.listAmount}>-{w.amount.toLocaleString()} {w.currency}</Text>
@@ -125,6 +146,21 @@ export default function WithdrawalHistoryScreen() {
                                 </Pressable>
                             );
                         })}
+
+                        {hasNextPage && (
+                            <TouchableOpacity
+                                activeOpacity={0.7}
+                                style={styles.loadMoreBtn}
+                                onPress={() => fetchNextPage()}
+                                disabled={isFetchingNextPage}
+                            >
+                                {isFetchingNextPage ? (
+                                    <ActivityIndicator size="small" color="#8A9BB3" />
+                                ) : (
+                                    <Text style={styles.loadMoreText}>Load More</Text>
+                                )}
+                            </TouchableOpacity>
+                        )}
                     </View>
                 )}
 
@@ -134,157 +170,39 @@ export default function WithdrawalHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: '#050A1F',
-    },
-    header: {
-        flexDirection: 'row',
-        paddingHorizontal: 20,
-        paddingBottom: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-    },
-    backBtn: {
-        marginRight: 16,
-        paddingTop: 6,
-    },
-    headerTextContainer: {
-        flex: 1,
-    },
-    eyebrow: {
-        color: '#93C5FD',
-        fontSize: 11,
-        fontWeight: 'bold',
-        letterSpacing: 1.5,
-        textTransform: 'uppercase',
-        marginBottom: 4,
-    },
-    title: {
-        color: '#F7F9FF',
-        fontSize: 26,
-        fontWeight: 'bold',
-        marginBottom: 6,
-    },
-    desc: {
-        color: '#8A9BB3',
-        fontSize: 13,
-        lineHeight: 20,
-    },
-    scrollContent: {
-        padding: 20,
-        paddingBottom: 40,
-    },
+    root: { flex: 1, backgroundColor: '#050A1F' },
+    header: { flexDirection: 'row', paddingHorizontal: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    backBtn: { marginRight: 16, paddingTop: 6 },
+    headerTextContainer: { flex: 1 },
+    eyebrow: { color: '#93C5FD', fontSize: 11, fontWeight: 'bold', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 },
+    title: { color: '#F7F9FF', fontSize: 26, fontWeight: 'bold', marginBottom: 6 },
+    desc: { color: '#8A9BB3', fontSize: 13, lineHeight: 20 },
+    scrollContent: { padding: 20, paddingBottom: 40 },
 
-    requestBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#042F21',
-        borderWidth: 1,
-        borderColor: '#10B981',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        marginBottom: 20,
-    },
-    requestBtnText: {
-        color: '#10B981',
-        fontSize: 15,
-        fontWeight: 'bold',
-    },
+    requestBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#042F21', borderWidth: 1, borderColor: '#10B981', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 16, marginBottom: 20 },
+    requestBtnText: { color: '#10B981', fontSize: 15, fontWeight: 'bold' },
 
-    statsGrid: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 12,
-        marginBottom: 40,
-    },
-    statBox: {
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: 12,
-        padding: 14,
-    },
-    statLabel: {
-        color: '#8A9BB3',
-        fontSize: 10,
-        fontWeight: 'bold',
-        letterSpacing: 1,
-        marginBottom: 6,
-    },
-    statValue: {
-        color: '#FFFFFF',
-        fontSize: 15,
-        fontWeight: 'bold',
-    },
+    statsGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginBottom: 40 },
+    statBox: { flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.03)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 12, padding: 14 },
+    statLabel: { color: '#8A9BB3', fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginBottom: 6 },
+    statValue: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
 
-    emptyState: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 40,
-        paddingHorizontal: 20,
-    },
-    emptyIcon: {
-        marginBottom: 12,
-        opacity: 0.8,
-    },
-    emptyTitle: {
-        color: '#6B7280',
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 8,
-    },
-    emptyDesc: {
-        color: '#4B5563',
-        fontSize: 13,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
+    emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 40, paddingHorizontal: 20 },
+    emptyIcon: { marginBottom: 12, opacity: 0.8 },
+    emptyTitle: { color: '#6B7280', fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
+    emptyDesc: { color: '#4B5563', fontSize: 13, textAlign: 'center', lineHeight: 20 },
 
-    listContainer: {
-        gap: 12,
-    },
-    listItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: 12,
-        padding: 16,
-    },
-    listLeft: {
-        flex: 1,
-    },
-    listTitle: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    listDate: {
-        color: '#8A9BB3',
-        fontSize: 12,
-    },
-    listRight: {
-        alignItems: 'flex-end',
-    },
-    listAmount: {
-        color: '#F87171',
-        fontSize: 15,
-        fontWeight: 'bold',
-        marginBottom: 6,
-    },
-    statusBadge: {
-        borderWidth: 1,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-    },
-    statusText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
+    listContainer: { gap: 12 },
+    listItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 12, padding: 16 },
+    listLeft: { flex: 1 },
+    listTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold', marginBottom: 4 },
+    listDate: { color: '#8A9BB3', fontSize: 12 },
+    listRight: { alignItems: 'flex-end' },
+    listAmount: { color: '#F87171', fontSize: 15, fontWeight: 'bold', marginBottom: 6 },
+    statusBadge: { borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 },
+    statusText: { fontSize: 10, fontWeight: 'bold' },
+
+    // 🌟 Load More Button Styles[cite: 8]
+    loadMoreBtn: { backgroundColor: 'rgba(255, 255, 255, 0.04)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
+    loadMoreText: { color: '#8A9BB3', fontSize: 13, fontWeight: 'bold' }
 });

@@ -1,15 +1,55 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { getMe } from '@/api/main';
+import { usePollingWhileVisible } from '@/hooks/usePollingWhileVisible';
+import { useAppStore } from '@/store/useAppStore';
 
 export default function HomeHeader() {
     const router = useRouter();
 
-    const displayName = "Min Khant";
-    const avatarText = "MK";
-    const balanceText = "MMK 50,000";
-    const unreadCount = 3;
+    const [user, setUser] = useState<any>(null);
+
+    const wallet = useAppStore((state) => state.wallet);
+    const walletLoading = useAppStore((state) => state.walletLoading);
+    const notificationStats = useAppStore((state) => state.notificationStats);
+
+    const refreshWallet = useAppStore((state) => state.refreshWallet);
+    const refreshNotifications = useAppStore((state) => state.refreshNotifications);
+
+    useEffect(() => {
+        let active = true;
+
+        getMe()
+            .then((response) => {
+                if (active) setUser(response.data?.user);
+            })
+            .catch(() => {
+                if (active) setUser(null);
+            });
+
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    usePollingWhileVisible(() => {
+        refreshWallet();
+        refreshNotifications();
+    });
+
+    const unreadCount = notificationStats?.unread ?? 0;
+
+    const displayName = user?.username?.trim() || user?.name?.trim() || user?.email || '';
+    const avatarText = displayName ? displayName.slice(0, 2).toUpperCase() : '--';
+
+    const balanceText = walletLoading
+        ? '–'
+        : wallet != null
+            ? `${wallet.currency ?? 'MMK'} ${wallet.balance.toLocaleString()}`
+            : '–';
 
     return (
         <View style={styles.header}>

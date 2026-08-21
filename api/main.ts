@@ -1,117 +1,79 @@
 import { axiosClient } from './axiosClient';
 
-export const getMe = async () => {
-    const response: any = await axiosClient.get('/me');
-    return response;
-};
 
-export const getMyWallet = async () => {
-    const response: any = await axiosClient.get('/me/wallet');
-    return response;
-};
+export const getMe = () => axiosClient.get('/me');
 
-export const getNotificationStats = async () => {
-    const response: any = await axiosClient.get('/notifications/stats');
-    return response;
-};
+export const getMyWallet = () => axiosClient.get('/me/wallet');
 
-export const getTwoDLive = async () => {
-    const response: any = await axiosClient.get('/two-d-results/live');
-    return response;
-};
+export const getNotificationStats = () => axiosClient.get('/notifications/stats');
 
-export const listTwoDResultsLastFiveDays = async () => {
-    const response: any = await axiosClient.get('/two-d-results/last-5-days');
-    return response;
-};
+export const getTwoDLive = () => axiosClient.get('/two-d-results/live');
 
-export const listTwoDSideNumbersLastFiveDays = async () => {
-    const response: any = await axiosClient.get('/two-d-side-numbers/last-5-days');
-    return response;
-};
+export const listTwoDResultsLastFiveDays = () => axiosClient.get('/two-d-results/last-5-days');
+
+export const listTwoDSideNumbersLastFiveDays = () => axiosClient.get('/two-d-side-numbers/last-5-days');
 
 
-export const listBankSettingsAPI = async () => {
-    const response: any = await axiosClient.get('/bank-settings');
-    return response.data;
-};
+export const listBankSettingsAPI = () => 
+    axiosClient.get('/bank-settings').then(res => res.data);
 
-export const createDepositAPI = async (formData: FormData) => {
-    const response: any = await axiosClient.post('/deposits', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
-    });
-    return response.data;
-};
+export const createDepositAPI = (formData: FormData) => 
+    axiosClient.post('/deposits', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(res => res.data);
 
-export const listWithdrawalsAPI = async (params: { page: number; page_size: number }) => {
-    const response: any = await axiosClient.get('/withdrawals', { params });
-    return response.data;
-};
+export const listWithdrawalsAPI = (params: { page: number; page_size: number }) => 
+    axiosClient.get('/withdrawals', { params }).then(res => res.data);
 
-export const getMyBankInfoAPI = async () => {
-    const response: any = await axiosClient.get('/me/bank-info');
-    return response.data; 
-};
+export const getMyBankInfoAPI = () => 
+    axiosClient.get('/me/bank-info').then(res => res.data);
 
-export const createWithdrawalAPI = async (payload: { 
-    amount: number; 
-    currency: string; 
-    security_pin: string 
-}) => {
-    const response: any = await axiosClient.post('/withdrawals', payload);
-    return response.data;
-};
-export const listBetsAPI = async (params: { page: number; page_size: number }) => {
-    const response: any = await axiosClient.get('/bets', { params });
-    return response.data; 
-};
-export const listWalletTransactionsAPI = async (params: { page: number; page_size: number; type?: string }) => {
-    const response: any = await axiosClient.get('/me/wallet/transactions', { params });
-    return response.data; 
-};
-export const getThreeDHistoryAPI = async () => {
-    const response: any = await axiosClient.get('/three-d-results/history');
-    return response.data;
-};
+export const createWithdrawalAPI = (payload: { amount: number; currency: string; security_pin: string }) => 
+    axiosClient.post('/withdrawals', payload).then(res => res.data);
 
-export const createMyBankInfoAPI = async (payload: { bank_name: string; account_name: string; account_number: string }) => {
-    const response: any = await axiosClient.post('/me/bank-info', payload);
-    return response.data;
-};
+export const listBetsAPI = (params: { page: number; page_size: number }) => 
+    axiosClient.get('/bets', { params }).then(res => res.data);
 
-export const updateMyBankInfoAPI = async (payload: { bank_name: string; account_name: string; account_number: string }) => {
-    const response: any = await axiosClient.put('/me/bank-info', payload);
-    return response.data;
-};
+export const listWalletTransactionsAPI = (params: { page: number; page_size: number; type?: string }) => 
+    axiosClient.get('/me/wallet/transactions', { params }).then(res => res.data);
 
-export const logoutAllFcmTokensAPI = async () => {
-    const response: any = await axiosClient.post('/fcm/logout-all');
-    return response.data;
-};
+export const getThreeDHistoryAPI = () => 
+    axiosClient.get('/three-d-results/history').then(res => res.data);
 
-export const logoutUserAPI = async () => {
-    const response: any = await axiosClient.post('/logout');
-    return response.data;
-};
+export const createMyBankInfoAPI = (payload: { bank_name: string; account_name: string; account_number: string }) => 
+    axiosClient.post('/me/bank-info', payload).then(res => res.data);
 
-export const createBetAPI = async (payload: { 
+export const updateMyBankInfoAPI = (payload: { bank_name: string; account_name: string; account_number: string }) => 
+    axiosClient.put('/me/bank-info', payload).then(res => res.data);
+
+export const logoutAllFcmTokensAPI = () => 
+    axiosClient.post('/fcm/logout-all').then(res => res.data);
+
+export const logoutUserAPI = () => 
+    axiosClient.post('/logout').then(res => res.data);
+
+export const createBetAPI = (payload: { 
     bet_type: string; 
     currency: string; 
     security_pin: string; 
     target_opentime?: string; 
     bet_numbers: { number: string; amount: number }[] 
-}) => {
-    const response: any = await axiosClient.post('/bets', payload);
-    return response.data;
-};
-export const listNotificationLogsAPI = async (params: { page: number; per_page: number }) => {
-    const response: any = await axiosClient.get('/notifications/logs', { params });
-    return response.data; 
-};
+}) => 
+    axiosClient.post('/bets', payload).then(res => res.data);
 
-export const markAllNotificationsAsReadAPI = async () => {
-    const response: any = await axiosClient.post('/notifications/read-all');
-    return response.data;
-};
+export const listNotificationLogsAPI = (params: { page: number; per_page: number }) => 
+    axiosClient.get('/notifications/logs', { params }).then(res => res.data);
+
+export const markAllNotificationsAsReadAPI = () => 
+    axiosClient.post('/notifications/read-all').then(res => res.data);
+
+export const listActivePopupAdsAPI = () => 
+    axiosClient.get('/popup-ads').then(res => res.data);
+
+
+export const downloadPopupAdImageAPI = (id: string | number) => 
+    axiosClient.get(`/popup-ads/${id}/image`, { responseType: 'arraybuffer' })
+        .then(res => res?.data ?? res);
+
+export const getMaintenanceSettingsAPI = () => 
+    axiosClient.get('/app-settings/maintenance').then(res => res.data);

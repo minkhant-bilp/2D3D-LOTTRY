@@ -4,9 +4,13 @@ import React from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTranslation } from 'react-i18next';
+
 export default function PrivacyPolicyScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+
+    const { t } = useTranslation();
 
     return (
         <View style={styles.root}>
@@ -15,10 +19,10 @@ export default function PrivacyPolicyScreen() {
                     <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
                 </Pressable>
                 <View style={styles.headerTextContainer}>
-                    <Text style={styles.eyebrow}>PRIVACY</Text>
-                    <Text style={styles.title}>Privacy Policy</Text>
+                    <Text style={styles.eyebrow}>{t('privacy.eyebrow', 'PRIVACY') as string}</Text>
+                    <Text style={styles.title}>{t('privacy.title', 'Privacy Policy') as string}</Text>
                     <Text style={styles.desc}>
-                        Learn how your account and activity data are handled in this app.
+                        {t('privacy.desc', 'Learn how your account and activity data are handled in this app.') as string}
                     </Text>
                 </View>
             </View>
@@ -26,16 +30,16 @@ export default function PrivacyPolicyScreen() {
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
                 <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Privacy</Text>
+                    <Text style={styles.cardTitle}>{t('privacy.card_privacy_title', 'Privacy') as string}</Text>
                     <Text style={styles.cardBody}>
-                        We collect only the details required to operate your account, process bets, and verify payments. Your data is protected and used only for service, support, and security purposes.
+                        {t('privacy.card_privacy_body', 'We collect only the details required to operate your account, process bets, and verify payments. Your data is protected and used only for service, support, and security purposes.') as string}
                     </Text>
                 </View>
 
                 <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Policy</Text>
+                    <Text style={styles.cardTitle}>{t('privacy.card_policy_title', 'Policy') as string}</Text>
                     <Text style={styles.cardBody}>
-                        Users must provide accurate account and payment information. Invalid submissions, abusive behavior, or policy violations may lead to rejected requests, account limits, or suspension.
+                        {t('privacy.card_policy_body', 'Users must provide accurate account and payment information. Invalid submissions, abusive behavior, or policy violations may lead to rejected requests, account limits, or suspension.') as string}
                     </Text>
                 </View>
 

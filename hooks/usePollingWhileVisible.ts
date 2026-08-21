@@ -13,7 +13,9 @@ export function usePollingWhileVisible(callback: () => void, intervalMs: number 
     useEffect(() => {
         let intervalId: ReturnType<typeof setInterval> | null = null;
 
-        const run = () => callbackRef.current();
+        const run = () => {
+            if (callbackRef.current) callbackRef.current();
+        };
 
         const startPolling = () => {
             if (intervalId !== null) return;

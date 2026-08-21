@@ -7,6 +7,7 @@ interface AppState {
     notificationStats: any | null;
     refreshWallet: () => Promise<void>;
     refreshNotifications: () => Promise<void>;
+    clearUnreadCount: () => void; 
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -29,5 +30,11 @@ export const useAppStore = create<AppState>((set) => ({
             set({ notificationStats: response.data || null });
         } catch (error) {
         }
-    }
+    },
+
+    clearUnreadCount: () => set((state) => ({
+        notificationStats: state.notificationStats 
+            ? { ...state.notificationStats, unread: 0 } 
+            : { unread: 0 }
+    }))
 }));

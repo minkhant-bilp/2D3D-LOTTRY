@@ -1,50 +1,41 @@
+import { useQuery } from '@tanstack/react-query';
 import { Redirect } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View } from 'react-native';
+
 import { getToken, verifyUser } from '../api/auth';
 import { useAuthStore } from '../store/useAuthStore';
 
-SplashScreen.preventAutoHideAsync();
-
 export default function IndexPage() {
-    const [isReady, setIsReady] = useState(false);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const { data: authStatus, isLoading } = useQuery({
+        queryKey: ['verifyAuth'],
+        queryFn: async () => {
+            const token = await getToken();
 
-    useEffect(() => {
-        const prepareApp = async () => {
+            if (!token) return 'UNAUTHENTICATED';
+
+            useAuthStore.setState({ token });
+
             try {
-                const token = await getToken();
-                if (!token) {
-                    setIsAuthenticated(false);
-                } else {
-                    useAuthStore.setState({ token });
-
-                    await verifyUser();
-                    setIsAuthenticated(true);
-                }
+                await verifyUser();
+                return 'AUTHENTICATED';
             } catch (error: any) {
                 if (error.message === 'NETWORK_ERROR') {
-                    setIsAuthenticated(true);
-                } else {
-                    setIsAuthenticated(false);
+                    return 'AUTHENTICATED';
                 }
-            } finally {
-                setIsReady(true);
-                await SplashScreen.hideAsync();
+                return 'UNAUTHENTICATED';
             }
-        };
+        },
+        staleTime: 0
+    });
 
-        prepareApp();
-    }, []);
-
-    if (!isReady) {
+    if (isLoading) {
         return <View style={{ flex: 1, backgroundColor: '#050A1F' }} />;
     }
 
-    if (!isAuthenticated) {
-        return <Redirect href="/register" />;
+    if (authStatus === 'AUTHENTICATED') {
+        return <Redirect href="/(tabs)" />;
     }
 
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/register" />;
 }

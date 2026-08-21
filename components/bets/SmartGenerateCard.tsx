@@ -1,8 +1,9 @@
+import { getPermutations3D, parsePastedBets3D } from '@/utils/betLogic3D';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { BetNumberRow, useBetStore } from '../../store/useBetStore';
-import { BROTHER_PAIRS, createEmptyRow, getPermutations3D, NAKKHAT_PAIRS, parsePastedBets, parsePastedBets3D, POWER_PAIRS } from '../../utils/betLogic3D';
+import { BROTHER_PAIRS, createEmptyRow, NAKKHAT_PAIRS, parsePastedBets, POWER_PAIRS } from '../../utils/betLogic';
 
 type GeneratorKey = 'reverse' | 'double' | 'nakkhat' | 'power' | 'brother' | 'khway' | 'a-par' | 'paste' | 'tut';
 

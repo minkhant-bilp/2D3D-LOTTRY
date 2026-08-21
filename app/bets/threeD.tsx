@@ -1,10 +1,13 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from 'react-native-reanimated';
 
 import { createBetAPI } from '../../api/main';
 import { useAppStore } from '../../store/useAppStore';
@@ -37,14 +40,9 @@ function getThwatNumbers3D(pair: string) {
 function parsePastedBets3D(text: string, defaultAmount: string) {
     const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
     const results: { number: string; amount: string; origin: string; coreNumber?: string }[] = [];
-    const seen = new Set<string>();
 
     const add = (number: string, amount: string, origin: string = 'manual', coreNumber?: string) => {
-        const key = `${number}|${amount}`;
-        if (!seen.has(key)) {
-            seen.add(key);
-            results.push({ number, amount, origin, coreNumber });
-        }
+        results.push({ number, amount, origin, coreNumber });
     };
 
     for (const line of lines) {
@@ -65,22 +63,70 @@ function parsePastedBets3D(text: string, defaultAmount: string) {
     return results;
 }
 
+function minutesOfDayMMT(): number {
+    const d = new Date();
+    const mmtTime = new Date(d.getTime() + 390 * 60000);
+    return mmtTime.getUTCHours() * 60 + mmtTime.getUTCMinutes();
+}
+
+const TARGET_OPEN_TIME_OPTIONS = ['15:30:00'];
+
+function isSessionExpired(openTime: string, currentMinutes: number): boolean {
+    const parts = openTime.split(':');
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const closeTimeMMT = h * 60 + m - 30;
+    return currentMinutes >= closeTimeMMT;
+}
+
 export default function ThreeDDetailScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
 
-    const wallet = useAppStore((state: any) => state.wallet);
+    const walletBalance = useAppStore((state: any) => state.wallet?.balance);
+    const walletCurrency = useAppStore((state: any) => state.wallet?.currency);
     const refreshWallet = useAppStore((state: any) => state.refreshWallet);
+    const realWalletBalance = Number(walletBalance ?? 0);
+    const realCurrency = walletCurrency ?? 'MMK';
 
-    const realWalletBalance = Number(wallet?.balance ?? 0);
-    const realCurrency = wallet?.currency ?? 'MMK';
+    const step = useBetStore(state => state.step);
+    const setStep = useBetStore(state => state.setStep);
+    const pin = useBetStore(state => state.pin);
+    const setPin = useBetStore(state => state.setPin);
+    const betRows = useBetStore(state => state.betRows);
+    const addBetRow = useBetStore(state => state.addBetRow);
+    const removeBetRow = useBetStore(state => state.removeBetRow);
+    const updateBetRow = useBetStore(state => state.updateBetRow);
+    const clearBetRows = useBetStore(state => state.clearBetRows);
+    const getValidAmountTotal = useBetStore(state => state.getValidAmountTotal);
+    const addMultipleBets = useBetStore(state => state.addMultipleBets);
 
-    const { betRows, addBetRow, removeBetRow, updateBetRow, clearBetRows, getValidAmountTotal, step, setStep, pin, setPin, addMultipleBets } = useBetStore() as any;
+    const validBetCount = betRows.filter((r: any) => r.number.length === 3 && Number(r.amount) >= 1).length;
 
     useEffect(() => {
         useBetStore.setState({ isTwoDType: false, step: 2 });
         clearBetRows();
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            clearBetRows();
+            setStep(2);
+            setPin('');
+        }, [])
+    );
+
+    const [isAllClosed, setIsAllClosed] = useState(() => TARGET_OPEN_TIME_OPTIONS.every(t => isSessionExpired(t, minutesOfDayMMT())));
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            const mins = minutesOfDayMMT();
+            const currentlyClosed = TARGET_OPEN_TIME_OPTIONS.every(t => isSessionExpired(t, mins));
+            setIsAllClosed(prev => prev !== currentlyClosed ? currentlyClosed : prev);
+        }, 10000);
+        return () => clearInterval(timer);
     }, []);
 
     const [fastNum, setFastNum] = useState('');
@@ -98,37 +144,45 @@ export default function ThreeDDetailScreen() {
 
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
-    const toastAnim = useRef(new Animated.Value(150)).current;
-    const [toastMsg, setToastMsg] = useState('');
+    const [toastMessage, setToastMessage] = useState('');
+    const toastOpacity = useSharedValue(0);
+    const toastScale = useSharedValue(0.8);
 
-    const showToast = (msg: string) => {
-        setToastMsg(msg);
-        toastAnim.stopAnimation();
-        toastAnim.setValue(150);
+    const showToast = (message: string) => {
+        setToastMessage(message);
+        toastOpacity.value = withSequence(
+            withTiming(1, { duration: 150 }),
+            withDelay(1200, withTiming(0, { duration: 150 }))
+        );
+        toastScale.value = withSequence(
+            withTiming(1, { duration: 150 }),
+            withDelay(1200, withTiming(0.8, { duration: 150 }))
+        );
+    };
 
-        Animated.sequence([
+    const toastStyle = useAnimatedStyle(() => ({
+        opacity: toastOpacity.value,
+        transform: [{ scale: toastScale.value }]
+    }));
 
-            Animated.timing(toastAnim, {
-                toValue: 0,
-                duration: 300,
-                easing: Easing.out(Easing.back(1.5)),
-                useNativeDriver: true
-            }),
-            Animated.delay(2400),
-            Animated.timing(toastAnim, {
-                toValue: 150,
-                duration: 300,
-                easing: Easing.in(Easing.ease),
-                useNativeDriver: true
-            })
-        ]).start();
+    const [customAlert, setCustomAlert] = useState<{
+        visible: boolean;
+        type: 'success' | 'error' | 'warning';
+        title: string;
+        message: string;
+        onConfirm?: () => void;
+        showCancel?: boolean;
+    }>({ visible: false, type: 'error', title: '', message: '' });
+
+    const showAlert = (type: 'success' | 'error' | 'warning', title: string, message: string, onConfirm?: () => void, showCancel = false) => {
+        setCustomAlert({ visible: true, type, title, message, onConfirm, showCancel });
     };
 
     const validTotal = getValidAmountTotal();
     const isInsufficient = validTotal > realWalletBalance;
     const balanceAfter = realWalletBalance - validTotal;
 
-    const groupedRows = useMemo(() => {
+    const groupedRows = (() => {
         const groupsMap = new Map<string, any>();
         const manualRows: any[] = [];
 
@@ -140,15 +194,15 @@ export default function ThreeDDetailScreen() {
                 let label = '';
                 if (row.origin === 'set') {
                     key = `set_${row.setKey}`;
-                    label = row.setKey === 'apu' ? 'အပူး (TRIPLES)' :
-                        row.setKey?.startsWith('thwat:') ? `သွပ် (${row.setKey.split(':')[1]})` :
-                            row.setKey || 'အုပ်စု';
+                    label = row.setKey === 'apu' ? (t('threed_detail.lbl_apu_triples', 'အပူး (TRIPLES)') as string) :
+                        row.setKey?.startsWith('thwat:') ? `${t('threed_detail.lbl_thwat', 'သွပ်') as string} (${row.setKey.split(':')[1]})` :
+                            row.setKey || (t('threed_detail.lbl_group', 'အုပ်စု') as string);
                 } else if (row.origin === 'tut') {
                     key = `tut_${row.coreNumber}`;
-                    label = `ခွေ (${row.coreNumber})`;
+                    label = `${t('threed_detail.quick_khway', 'ခွေ') as string} (${row.coreNumber})`;
                 } else if (row.origin === 'core') {
                     key = `core_${row.coreNumber}`;
-                    label = `ဒဲ့ (${row.coreNumber})`;
+                    label = `${t('threed_detail.quick_direct', 'ဒဲ့') as string} (${row.coreNumber})`;
                 }
 
                 if (!groupsMap.has(key)) {
@@ -160,14 +214,8 @@ export default function ThreeDDetailScreen() {
 
         const finalGroups = Array.from(groupsMap.values());
         if (manualRows.length > 0) {
-            finalGroups.push({ id: 'manual', label: 'အခြား', rows: manualRows, isManual: true });
+            finalGroups.push({ id: 'manual', label: t('threed_detail.lbl_other', 'အခြား') as string, rows: manualRows, isManual: true });
         }
-
-        finalGroups.forEach(g => {
-            if (expandedGroups[g.id] === undefined) {
-                setExpandedGroups(prev => ({ ...prev, [g.id]: true }));
-            }
-        });
 
         return finalGroups.map(g => {
             const amounts = new Set(g.rows.map((r: any) => r.amount || ''));
@@ -175,23 +223,15 @@ export default function ThreeDDetailScreen() {
             const subtotal = g.rows.reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0);
             return { ...g, groupAmount: (amounts.size === 1 ? [...amounts][0] : '') || '', validCount, subtotal };
         });
-    }, [betRows, expandedGroups]);
-
-    const filledRowsCount = betRows.filter((r: any) => r.number !== '').length;
+    })();
 
     const processAndAddBets = (newBets: any[]) => {
-        const existingNumbers = new Set(betRows.filter((r: any) => r.number !== '').map((r: any) => r.number));
-        const toAdd = newBets.filter(b => !existingNumbers.has(b.number));
-
-        if (toAdd.length === 0) {
-            showToast('ဂဏန်းများ စာရင်းထဲတွင် ပါဝင်ပြီးသားဖြစ်နေပါသည်။');
-            return;
-        }
-
-        if (addMultipleBets) addMultipleBets(toAdd);
+        if (newBets.length === 0) return;
+        Keyboard.dismiss();
+        if (addMultipleBets) addMultipleBets(newBets);
         setFastNum('');
         setPasteText('');
-        showToast('စာရင်းထဲ ပေါင်းထည့်လိုက်ပါပြီ');
+        showToast(t('threed_detail.toast_added', 'စာရင်း ထည့်သွင်းပြီးပါပြီ') as string);
     };
 
     const handleQuickPick = (pick: 'direct' | 'reverse' | 'apu' | 'thwat') => {
@@ -201,13 +241,13 @@ export default function ThreeDDetailScreen() {
         const hasAmount = /^\d+$/.test(stake) && Number(stake) >= 1;
 
         if ((pick === 'direct' || pick === 'reverse') && !hasAmount) {
-            setFastError('ကျေးဇူးပြု၍ လောင်းကြေးငွေပမာဏ မှန်ကန်စွာထည့်ပါ။'); return;
+            setFastError(t('threed_detail.err_invalid_amt', 'ကျေးဇူးပြု၍ လောင်းကြေးငွေပမာဏ မှန်ကန်စွာထည့်ပါ။') as string); return;
         }
 
         let candidates: any[] = [];
 
         if (pick === 'direct' || pick === 'reverse') {
-            if (!/^\d{3}$/.test(input)) { setFastError('ဂဏန်း (၃) လုံး အတိအကျ ထည့်ပါ။'); return; }
+            if (!/^\d{3}$/.test(input)) { setFastError(t('threed_detail.err_exact_three', 'ဂဏန်း (၃) လုံး အတိအကျ ထည့်ပါ။') as string); return; }
             candidates.push({ number: input, amount: stake, origin: 'core', coreNumber: input });
             if (pick === 'reverse') {
                 getTutNumbers3D(input).forEach(perm => {
@@ -217,13 +257,13 @@ export default function ThreeDDetailScreen() {
         } else if (pick === 'apu') {
             getTriples3D().forEach(triple => candidates.push({ number: triple, amount: stake, origin: 'set', setKey: 'apu' }));
         } else if (pick === 'thwat') {
-            if (!/^\d{2}$/.test(input)) { setFastError('သွပ်ရန်အတွက် ဂဏန်း (၂) လုံး အတိအကျ ထည့်ပါ။'); return; }
+            if (!/^\d{2}$/.test(input)) { setFastError(t('threed_detail.err_exact_two_thwat', 'သွပ်ရန်အတွက် ဂဏန်း (၂) လုံး အတိအကျ ထည့်ပါ။') as string); return; }
             getThwatNumbers3D(input).forEach(num => candidates.push({ number: num, amount: stake, origin: 'set', setKey: `thwat:${input}` }));
         }
 
         if (candidates.length > 0) {
             if (candidates.length > 1 && !hasAmount) {
-                setModalTitle(pick === 'apu' ? 'အပူး' : pick === 'thwat' ? 'သွပ်' : 'ခွေ');
+                setModalTitle(pick === 'apu' ? (t('threed_detail.quick_apu', 'အပူး') as string) : pick === 'thwat' ? (t('threed_detail.quick_thwat', 'သွပ်') as string) : (t('threed_detail.quick_khway', 'ခွေ') as string));
                 setModalNumbers(candidates);
                 setModalAmt(stake);
                 setModalVisible(true);
@@ -236,21 +276,18 @@ export default function ThreeDDetailScreen() {
     const confirmCustomAlert = () => {
         if (!modalAmt || parseInt(modalAmt) <= 0) return;
         setModalVisible(false);
-
-        setTimeout(() => {
-            processAndAddBets(modalNumbers.map(b => ({ ...b, amount: modalAmt })));
-        }, 300);
+        setTimeout(() => processAndAddBets(modalNumbers.map(b => ({ ...b, amount: modalAmt }))), 300);
     };
 
     const handlePasteSubmit = () => {
         setPasteError(null);
         const stake = pasteAmt.trim();
-        if (!/^\d+$/.test(stake) || Number(stake) < 1) { setPasteError('အခြေခံ လောင်းကြေးငွေပမာဏ မှန်ကန်စွာ သတ်မှတ်ပါ။'); return; }
-        if (!pasteText.trim()) { setPasteError('ဂဏန်းများကို Paste ချပါ။'); return; }
+        if (!/^\d+$/.test(stake) || Number(stake) < 1) { setPasteError(t('threed_detail.err_paste_amt', 'အခြေခံ လောင်းကြေးငွေပမာဏ မှန်ကန်စွာ သတ်မှတ်ပါ။') as string); return; }
+        if (!pasteText.trim()) { setPasteError(t('threed_detail.err_paste_empty', 'ဂဏန်းများကို Paste ချပါ။') as string); return; }
 
         const parsedBets = parsePastedBets3D(pasteText, stake);
         if (parsedBets.length === 0) {
-            setPasteError('ဂဏန်းများ ရှာမတွေ့ပါ သို့မဟုတ် ဖော်မတ်မှားနေပါသည်။ (ဥပမာ: 123=500/200)'); return;
+            setPasteError(t('threed_detail.err_paste_invalid', 'ဂဏန်းများ ရှာမတွေ့ပါ သို့မဟုတ် ဖော်မတ်မှားနေပါသည်။ (ဥပမာ: 123=500/200)') as string); return;
         }
         processAndAddBets(parsedBets);
     };
@@ -258,336 +295,345 @@ export default function ThreeDDetailScreen() {
     const mutation = useMutation({
         mutationFn: createBetAPI,
         onSuccess: () => {
-            Alert.alert('အောင်မြင်ပါသည်', 'လောင်းကြေး အောင်မြင်စွာ တင်သွင်းပြီးပါပြီ။');
-            clearBetRows(); setPin(''); refreshWallet();
-            router.push('/results/threeDresult');
+            showAlert('success', t('threed_detail.alert_success', 'အောင်မြင်ပါသည်') as string, t('threed_detail.alert_success_msg', 'လောင်းကြေး အောင်မြင်စွာ တင်သွင်းပြီးပါပြီ။') as string, () => {
+                clearBetRows();
+                setPin('');
+                refreshWallet();
+                router.push('/results/threeDresult');
+            });
         },
-        onError: (err: any) => Alert.alert('အမှား', err?.response?.data?.message || 'လောင်းကြေးတင်ခြင်း မအောင်မြင်ပါ။')
+        onError: (err: any) => {
+            showAlert('error', t('threed_detail.alert_error', 'အမှား') as string, err?.response?.data?.message || t('threed_detail.alert_fail_msg', 'လောင်းကြေးတင်ခြင်း မအောင်မြင်ပါ။') as string);
+        }
     });
 
     const submitBet = () => {
-        if (isInsufficient) return Alert.alert('အမှား', 'လက်ကျန်ငွေ မလုံလောက်ပါ။');
-        if (pin.length !== 6) return Alert.alert('အမှား', 'PIN ၆ လုံး ထည့်ပါ။');
-        if (filledRowsCount === 0) return Alert.alert('အမှား', 'ဂဏန်း အနည်းဆုံး ၁ ခု ထည့်ပါ။');
+        Keyboard.dismiss();
+        if (isInsufficient) return showAlert('error', t('threed_detail.alert_error', 'အမှား') as string, t('threed_detail.alert_insufficient', 'လက်ကျန်ငွေ မလုံလောက်ပါ။') as string);
+        if (pin.length !== 6) return showAlert('error', t('threed_detail.alert_error', 'အမှား') as string, t('threed_detail.alert_exact_six_pin', 'PIN ဂဏန်း (၆) လုံး အတိအကျ ထည့်ပါ။') as string);
+        if (validBetCount === 0) return showAlert('error', t('threed_detail.alert_error', 'အမှား') as string, t('threed_detail.alert_min_one_num', 'ဂဏန်း အနည်းဆုံး ၁ ခု ထည့်ပါ။') as string);
+
+        const cleanRows = betRows.filter((r: any) => r.number.length === 3 && Number(r.amount) >= 1);
+        const mergedMap: Record<string, number> = {};
+        cleanRows.forEach((r: any) => {
+            const num = r.number;
+            const amt = parseInt(r.amount) || 0;
+            mergedMap[num] = (mergedMap[num] || 0) + amt;
+        });
+        const mergedBetNumbers = Object.entries(mergedMap).map(([number, amount]) => ({ number, amount }));
 
         mutation.mutate({
             bet_type: '3D',
             currency: realCurrency,
-            bet_numbers: betRows.filter((r: any) => r.number !== '').map((r: any) => ({ number: r.number, amount: parseInt(r.amount) })),
+            bet_numbers: mergedBetNumbers,
             security_pin: pin
         });
     };
 
-    const toggleGroup = (id: string) => setExpandedGroups(prev => ({ ...prev, [id]: !prev[id] }));
+    const handleBack = () => {
+        Keyboard.dismiss();
+        if (step === 3) {
+            setStep(2);
+        } else {
+            if (betRows.filter((r: any) => r.number !== '').length > 0) {
+                showAlert(
+                    'warning',
+                    t('threed_detail.alert_warning', 'သတိပေးချက်') as string,
+                    t('threed_detail.alert_clear_warning', 'သင်ရွေးချယ်ထားသော ဂဏန်းများအားလုံး ပျက်သွားပါမည်။ ထွက်မှာ သေချာပြီလား?') as string,
+                    () => { clearBetRows(); router.back(); },
+                    true
+                );
+            } else { router.back(); }
+        }
+    };
+
+    const toggleGroup = (id: string) => setExpandedGroups(prev => ({ ...prev, [id]: prev[id] === false ? true : false }));
     const removeGroup = (rows: any[]) => rows.forEach(r => removeBetRow(r.id));
     const updateGroupAmount = (rows: any[], val: string) => rows.forEach(r => updateBetRow(r.id, 'amount', val));
+
+    const renderStep2Header = () => (
+        <>
+            <View style={styles.titleRow}>
+                <View>
+                    <Text style={styles.mainTitle}>{t('threed_detail.main_title', 'လောင်းကြေး ထားမည်') as string}</Text>
+                    <Text style={styles.subTitle}>{t('threed_detail.sub_title', 'Three-digit premium rounds') as string}</Text>
+                </View>
+                <View style={styles.pillOuter}>
+                    <View style={styles.pillInner}><Text style={styles.pillText}>{t('threed_detail.market_pill', '3D ဈေးကွက်') as string}</Text></View>
+                </View>
+            </View>
+
+            <View style={styles.fastEntryOuter}>
+                <View style={styles.fastEntryInner}>
+                    <View style={styles.fastEntryHeader}>
+                        <MaterialIcons name="bolt" size={22} color="#FBBF24" />
+                        <Text style={styles.fastEntryTitle}>{t('threed_detail.fast_entry', 'အမြန်ရွေးချယ်မှု (FAST ENTRY)') as string}</Text>
+                    </View>
+                    <View style={styles.fastInputRow}>
+                        <View style={styles.fastInputWrapper}>
+                            <Text style={styles.fastInputLabel}>{t('threed_detail.number_label', 'ဂဏန်း (000-999)') as string}</Text>
+                            <TextInput style={styles.fastInput} keyboardType="number-pad" maxLength={3} placeholder="123" placeholderTextColor="#4B5563" value={fastNum} onChangeText={(v) => { setFastNum(v.replace(/\D/g, '').slice(0, 3)); setFastError(null); }} />
+                        </View>
+                        <View style={styles.fastInputWrapper}>
+                            <Text style={styles.fastInputLabel}>{t('threed_detail.amount_mmk', 'ငွေပမာဏ (MMK)') as string}</Text>
+                            <TextInput style={styles.fastInput} keyboardType="number-pad" placeholder="1000" placeholderTextColor="#4B5563" value={fastAmt} onChangeText={(v) => { setFastAmt(v); setFastError(null); }} />
+                        </View>
+                    </View>
+                    <View style={styles.fastActionGrid}>
+                        <TouchableOpacity style={styles.fastActionBtn} onPress={() => handleQuickPick('direct')}><Text style={styles.fastActionText}>{t('threed_detail.quick_direct', 'ဒဲ့') as string}</Text></TouchableOpacity>
+                        <TouchableOpacity style={styles.fastActionBtn} onPress={() => handleQuickPick('reverse')}><Text style={styles.fastActionText}>{t('threed_detail.quick_r', 'R') as string}</Text></TouchableOpacity>
+                        <TouchableOpacity style={styles.fastActionBtn} onPress={() => handleQuickPick('apu')}><Text style={styles.fastActionText}>{t('threed_detail.quick_apu', 'အပူး') as string}</Text></TouchableOpacity>
+                        <TouchableOpacity style={styles.fastActionBtn} onPress={() => handleQuickPick('thwat')}><Text style={styles.fastActionText}>{t('threed_detail.quick_thwat', 'သွပ်') as string}</Text></TouchableOpacity>
+                    </View>
+                    <Text style={styles.hintText}>{t('threed_detail.fast_hint', 'ဒဲ့ နှင့် R အတွက် ဂဏန်း (၃) လုံး၊ သွပ် အတွက် (၂) လုံး (12 -> 102...192)၊ အပူး အတွက် မလိုပါ။') as string}</Text>
+                    {fastError && <Text style={styles.errorText}>{fastError}</Text>}
+                </View>
+            </View>
+
+            <View style={styles.pasteCardOuter}>
+                <View style={styles.pasteCardInner}>
+                    <View style={styles.pasteHeader}>
+                        <MaterialIcons name="content-paste" size={20} color="#3B82F6" />
+                        <Text style={styles.pasteTitle}>{t('threed_detail.paste_title', 'ဂဏန်းများ COPY / PASTE လုပ်ရန်') as string}</Text>
+                    </View>
+                    <Text style={styles.pasteInstruction}>{t('threed_detail.paste_instruction', 'အောက်တွင် ငွေပမာဏ သတ်မှတ်ပြီး၊ ဂဏန်းများ Paste ချပါ။') as string}</Text>
+                    <Text style={[styles.fastInputLabel, { marginTop: 8 }]}>{t('threed_detail.default_amount', 'အခြေခံ ငွေပမာဏ (Default Amount)') as string}</Text>
+                    <TextInput style={[styles.fastInput, { marginBottom: 12 }]} keyboardType="number-pad" placeholder="100" placeholderTextColor="#4B5563" value={pasteAmt} onChangeText={(v) => { setPasteAmt(v); setPasteError(null); }} />
+                    <TextInput style={styles.pasteInput} multiline textAlignVertical="top" placeholder={'123=500/200\n456.300r100\n789-1000-500'} placeholderTextColor="#4B5563" value={pasteText} onChangeText={(v) => { setPasteText(v); setPasteError(null); }} />
+                    <TouchableOpacity style={styles.pasteBtn} onPress={handlePasteSubmit}>
+                        <MaterialIcons name="add-task" size={20} color="#FFFFFF" />
+                        <Text style={styles.pasteBtnText}>{t('threed_detail.paste_btn', 'စာရင်းထဲသို့ ထည့်သွင်းမည်') as string}</Text>
+                    </TouchableOpacity>
+                    {pasteError && <Text style={styles.errorText}>{pasteError}</Text>}
+                </View>
+            </View>
+
+            <View style={[styles.fieldsetOuter, { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, paddingBottom: 0, marginBottom: 0 }]}>
+                <View style={[styles.fieldsetInner, { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, paddingBottom: 0 }]}>
+                    <View style={styles.legendWrapper}><Text style={styles.legendText}>{t('threed_detail.lottery_numbers', 'ထီဂဏန်းများ') as string}</Text></View>
+                </View>
+            </View>
+        </>
+    );
+
+    const renderStep2Group = ({ item: group }: { item: any }) => {
+        if (group.validCount === 0 && !group.isManual) return null;
+        const isExpanded = expandedGroups[group.id] !== false;
+
+        return (
+            <View style={[styles.fieldsetOuter, { marginTop: 0, paddingTop: 0, paddingBottom: 0, borderRadius: 0, borderTopWidth: 0, borderBottomWidth: 0 }]}>
+                <View style={[styles.fieldsetInner, { paddingTop: 0, paddingBottom: 0, borderRadius: 0 }]}>
+
+                    <View style={styles.groupCardOuter}>
+                        <View style={styles.groupCardInner}>
+                            <View style={styles.groupHeaderRow}>
+                                <Pressable style={styles.groupTitleCol} onPress={() => toggleGroup(group.id)}>
+                                    <MaterialIcons name={isExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="#9CA3AF" style={{ marginRight: 8 }} />
+                                    <View>
+                                        <Text style={styles.groupTitleText}>{group.label}</Text>
+                                        <Text style={styles.groupSubtitleText}>{t('threed_detail.lbl_nums', 'ဂဏန်း') as string} {group.validCount} {t('threed_detail.lbl_lones', 'လုံး') as string} · {group.subtotal.toLocaleString()} {realCurrency}</Text>
+                                    </View>
+                                </Pressable>
+                                <View style={styles.groupActionCol}>
+                                    {!group.isManual && (
+                                        <TextInput
+                                            style={styles.groupAmtInput}
+                                            keyboardType="number-pad"
+                                            placeholder="Amt"
+                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            value={group.groupAmount}
+                                            onChangeText={(val) => updateGroupAmount(group.rows, val)}
+                                        />
+                                    )}
+                                    <Pressable style={styles.groupDelBtn} onPress={() => removeGroup(group.rows)}>
+                                        <MaterialIcons name="delete-outline" size={18} color="#9CA3AF" />
+                                    </Pressable>
+                                </View>
+                            </View>
+
+                            {isExpanded && !group.isManual && group.validCount > 0 && (
+                                <View style={styles.groupChipsContainer}>
+                                    {group.rows.filter((r: any) => r.number !== '').map((r: any, index: number) => (
+                                        <View key={`${r.id}-${index}`} style={styles.miniChip}>
+                                            <Text style={styles.miniChipText}>{r.number} · {r.amount || 0}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+
+                            {isExpanded && group.isManual && (
+                                <View style={styles.manualEntriesContainer}>
+                                    {group.rows.map((row: any, index: number) => (
+                                        <View key={`${row.id}-${index}`} style={styles.manualRowCard}>
+                                            <View style={styles.manualRowHeader}>
+                                                <View>
+                                                    <Text style={styles.potentialWinLabel}>{t('threed_detail.potential_win', 'POTENTIAL WIN') as string}</Text>
+                                                    <Text style={styles.potentialWinValue}>{row.amount ? `x ${(Number(row.amount) * 500).toLocaleString()}` : '—'}</Text>
+                                                </View>
+                                                <Pressable style={styles.closeBtnOuter} onPress={() => removeBetRow(row.id)}>
+                                                    <View style={styles.closeBtnInner}><MaterialIcons name="close" size={16} color="#9CA3AF" /></View>
+                                                </Pressable>
+                                            </View>
+                                            <View style={styles.manualInputGrid}>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.inputLabel}>{t('threed_detail.number_label', 'ဂဏန်း (000-999)') as string}</Text>
+                                                    <TextInput style={styles.inputInner} keyboardType="number-pad" maxLength={3} value={row.number} onChangeText={(val) => updateBetRow(row.id, 'number', val)} />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.inputLabel}>{t('threed_detail.amount_label', 'ငွေပမာဏ') as string}</Text>
+                                                    <TextInput style={styles.inputInner} keyboardType="number-pad" value={row.amount} onChangeText={(val) => updateBetRow(row.id, 'amount', val)} />
+                                                </View>
+                                            </View>
+                                        </View>
+                                    ))}
+                                    <Pressable style={styles.addBtnOuter} onPress={addBetRow}>
+                                        <MaterialIcons name="add" size={24} color="#10B981" />
+                                    </Pressable>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+
+                </View>
+            </View>
+        );
+    };
+
+    const renderStep2Footer = () => (
+        <>
+            <View style={[styles.fieldsetOuter, { marginTop: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingTop: 0, borderTopWidth: 0 }]}>
+                <View style={[styles.fieldsetInner, { borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingTop: 0 }]}>
+                    <Pressable style={styles.clearBtnOuter} onPress={clearBetRows}>
+                        <View style={styles.clearBtnInner}>
+                            <MaterialIcons name="delete-outline" size={18} color="#F87171" />
+                            <Text style={styles.clearBtnText}>{t('threed_detail.clear_all', 'အားလုံး ရှင်းမည်') as string}</Text>
+                        </View>
+                    </Pressable>
+                </View>
+            </View>
+
+            <TouchableOpacity
+                activeOpacity={0.8}
+                style={[styles.nextBtnInline, validBetCount > 0 ? { ...styles.activeGlow, opacity: 1 } : { opacity: 0.4 }]}
+                disabled={validBetCount === 0}
+                onPress={() => setStep(3)}
+            >
+                <LinearGradient colors={['#34D399', '#10B981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.nextBtnInnerInline}>
+                    <Text style={styles.nextBtnTextInline}>{t('threed_detail.btn_next', 'ရှေ့သို့') as string}</Text>
+                    <MaterialIcons name="arrow-forward" size={20} color="#042F21" />
+                </LinearGradient>
+            </TouchableOpacity>
+        </>
+    );
+
+    const renderStep3Content = () => (
+        <>
+            <View style={styles.summaryCardOuter}>
+                <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
+                    <Text style={styles.summaryTitle}>{t('threed_detail.bet_summary', 'BET SUMMARY') as string}</Text>
+                    <View style={[styles.summaryChips, { marginVertical: 16 }]}>
+                        {betRows.filter((r: any) => r.number !== '').map((row: any, index: number) => {
+                            const amt = Number(row.amount);
+                            const isValid = /^\d+$/.test(row.amount.trim()) && Number.isInteger(amt) && amt >= 1;
+                            return (
+                                <View key={`${row.id}-${index}`} style={[styles.chip, isValid ? styles.chipValid : styles.chipInvalid]}>
+                                    <Text style={[styles.chipText, isValid ? styles.chipTextValid : styles.chipTextInvalid]}>
+                                        {row.number}
+                                        {row.amount !== '' && <Text style={styles.chipAmountText}> · {row.amount}</Text>}
+                                    </Text>
+                                </View>
+                            );
+                        })}
+                    </View>
+                    <View style={styles.divider} />
+                    <View style={styles.rowBetween}>
+                        <Text style={styles.rowLabel}>{t('threed_detail.total', 'Total') as string}</Text>
+                        <Text style={styles.rowValueWhite}>{validTotal.toLocaleString()} {realCurrency}</Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.summaryCardOuter}>
+                <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
+                    <View style={[styles.rowBetween, { marginBottom: 12 }]}>
+                        <Text style={styles.rowLabel}>{t('threed_detail.balance', 'လက်ကျန်ငွေ') as string}</Text>
+                        <Text style={styles.rowValueWhite}>{realWalletBalance.toLocaleString()} {realCurrency}</Text>
+                    </View>
+                    <View style={styles.rowBetween}>
+                        <Text style={styles.rowLabel}>{t('threed_detail.after_bet', 'ထိုးပြီးပါက ကျန်မည့်ငွေ') as string}</Text>
+                        <Text style={[styles.rowValueColored, isInsufficient ? { color: '#F87171' } : { color: '#10B981' }]}>
+                            {isInsufficient ? (t('threed_detail.insufficient_short', 'လက်ကျန်ငွေ မလုံလောက်ပါ') as string) : `${balanceAfter.toLocaleString()} ${realCurrency}`}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.summaryCardOuter}>
+                <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
+                    <Text style={[styles.summaryTitle, { marginBottom: 16 }]}>{t('threed_detail.security_pin', 'SECURITY PIN') as string}</Text>
+                    <TextInput style={styles.pinInput} keyboardType="number-pad" secureTextEntry maxLength={6} placeholder={t('threed_detail.pin_placeholder', 'ဂဏန်း ၆ လုံး ထည့်ပါ') as string} placeholderTextColor="rgba(255,255,255,0.3)" value={pin} onChangeText={(val) => setPin(val.replace(/\D/g, '').slice(0, 6))} />
+                </View>
+            </View>
+
+            {isInsufficient && (
+                <TouchableOpacity activeOpacity={0.8} style={styles.topUpBtn} onPress={() => router.push('/wallet-profile/deposit')}>
+                    <Text style={styles.topUpBtnText}>{t('threed_detail.top_up', '→ Top up wallet') as string}</Text>
+                </TouchableOpacity>
+            )}
+
+            <View style={styles.actionsCardOuter}>
+                <View style={styles.actionsCardInner}>
+                    <View style={[styles.rowBetween, { marginBottom: 16 }]}>
+                        <Text style={styles.rowLabel}>{t('threed_detail.est_total', 'ခန့်မှန်းစုစုပေါင်း:') as string}</Text>
+                        <Text style={styles.rowValueWhite}>{validTotal.toLocaleString()} {realCurrency}</Text>
+                    </View>
+                    <View style={styles.grid2}>
+                        <TouchableOpacity style={styles.stepBackBtn} onPress={() => setStep(2)}>
+                            <MaterialIcons name="arrow-back" size={20} color="#FFF" />
+                            <Text style={styles.stepBackText}>{t('threed_detail.btn_back', 'နောက်သို့') as string}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.confirmBtn, (isInsufficient || pin.length !== 6 || mutation.isPending) && { opacity: 0.5 }]} disabled={isInsufficient || pin.length !== 6 || mutation.isPending} onPress={submitBet}>
+                            <LinearGradient colors={['#34D399', '#10B981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.confirmBtnGradient}>
+                                {mutation.isPending ? <ActivityIndicator color="#042F21" size="small" /> : <><Text style={styles.confirmBtnText}>{t('threed_detail.btn_confirm_wager', 'လောင်းကြေး\nအတည်ပြုမည်') as string}</Text><MaterialIcons name="arrow-forward" size={20} color="#042F21" /></>}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </>
+    );
 
     return (
         <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-                <Pressable onPress={() => step === 3 ? setStep(2) : router.back()} style={styles.backBtn}>
+                <Pressable onPress={handleBack} style={styles.backBtn}>
                     <MaterialIcons name="arrow-back-ios" size={22} color="#9CA3AF" />
                 </Pressable>
-                <Text style={styles.headerTitle}>3D FLASH MODE</Text>
+                <Text style={styles.headerTitle}>{t('threed_detail.header_title', '3D FLASH MODE') as string}</Text>
             </View>
 
-            <ScrollView style={styles.scrollFlex} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 20) + 120 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <View style={styles.titleRow}>
-                    <View>
-                        <Text style={styles.mainTitle}>လောင်းကြေး ထားမည်</Text>
-                        <Text style={styles.subTitle}>Three-digit premium rounds</Text>
-                    </View>
-                    <View style={styles.pillOuter}>
-                        <View style={styles.pillInner}><Text style={styles.pillText}>3D ဈေးကွက်</Text></View>
-                    </View>
-                </View>
-
-                {step === 2 && (
-                    <>
-                        <View style={styles.fastEntryOuter}>
-                            <View style={styles.fastEntryInner}>
-                                <View style={styles.fastEntryHeader}>
-                                    <MaterialIcons name="bolt" size={22} color="#FBBF24" />
-                                    <Text style={styles.fastEntryTitle}>အမြန်ရွေးချယ်မှု (FAST ENTRY)</Text>
-                                </View>
-
-                                <View style={styles.fastInputRow}>
-                                    <View style={styles.fastInputWrapper}>
-                                        <Text style={styles.fastInputLabel}>ဂဏန်း (000-999)</Text>
-                                        <TextInput style={styles.fastInput} keyboardType="number-pad" maxLength={3} placeholder="123" placeholderTextColor="#4B5563" value={fastNum} onChangeText={(v) => { setFastNum(v.replace(/\D/g, '').slice(0, 3)); setFastError(null); }} />
-                                    </View>
-                                    <View style={styles.fastInputWrapper}>
-                                        <Text style={styles.fastInputLabel}>ငွေပမာဏ (MMK)</Text>
-                                        <TextInput style={styles.fastInput} keyboardType="number-pad" placeholder="1000" placeholderTextColor="#4B5563" value={fastAmt} onChangeText={(v) => { setFastAmt(v); setFastError(null); }} />
-                                    </View>
-                                </View>
-
-                                <View style={styles.fastActionGrid}>
-                                    <TouchableOpacity style={styles.fastActionBtn} onPress={() => handleQuickPick('direct')}><Text style={styles.fastActionText}>ဒဲ့</Text></TouchableOpacity>
-                                    <TouchableOpacity style={styles.fastActionBtn} onPress={() => handleQuickPick('reverse')}><Text style={styles.fastActionText}>R</Text></TouchableOpacity>
-                                    <TouchableOpacity style={styles.fastActionBtn} onPress={() => handleQuickPick('apu')}><Text style={styles.fastActionText}>အပူး</Text></TouchableOpacity>
-                                    <TouchableOpacity style={styles.fastActionBtn} onPress={() => handleQuickPick('thwat')}><Text style={styles.fastActionText}>သွပ်</Text></TouchableOpacity>
-                                </View>
-
-                                <Text style={styles.hintText}>ဒဲ့ နှင့် R အတွက် ဂဏန်း (၃) လုံး၊ သွပ် အတွက် (၂) လုံး (12 {'->'} 102...192)၊ အပူး အတွက် မလိုပါ။</Text>
-                                {fastError && <Text style={styles.errorText}>{fastError}</Text>}
-                            </View>
-                        </View>
-
-                        <View style={styles.pasteCardOuter}>
-                            <View style={styles.pasteCardInner}>
-                                <View style={styles.pasteHeader}>
-                                    <MaterialIcons name="content-paste" size={20} color="#3B82F6" />
-                                    <Text style={styles.pasteTitle}>ဂဏန်းများ COPY / PASTE လုပ်ရန်</Text>
-                                </View>
-                                <Text style={styles.pasteInstruction}>အောက်တွင် ငွေပမာဏ သတ်မှတ်ပြီး၊ ဂဏန်းများ Paste ချပါ။</Text>
-
-                                <Text style={[styles.fastInputLabel, { marginTop: 8 }]}>အခြေခံ ငွေပမာဏ (Default Amount)</Text>
-                                <TextInput style={[styles.fastInput, { marginBottom: 12 }]} keyboardType="number-pad" placeholder="100" placeholderTextColor="#4B5563" value={pasteAmt} onChangeText={(v) => { setPasteAmt(v); setPasteError(null); }} />
-
-                                <TextInput style={styles.pasteInput} multiline textAlignVertical="top" placeholder={'123=500/200\n456.300r100\n789-1000-500'} placeholderTextColor="#4B5563" value={pasteText} onChangeText={(v) => { setPasteText(v); setPasteError(null); }} />
-
-                                <TouchableOpacity style={styles.pasteBtn} onPress={handlePasteSubmit}>
-                                    <MaterialIcons name="add-task" size={20} color="#FFFFFF" />
-                                    <Text style={styles.pasteBtnText}>စာရင်းထဲသို့ ထည့်သွင်းမည်</Text>
-                                </TouchableOpacity>
-                                {pasteError && <Text style={styles.errorText}>{pasteError}</Text>}
-                            </View>
-                        </View>
-
-                        {filledRowsCount > 0 && (
-                            <View style={styles.summaryCardOuter}>
-                                <View style={styles.summaryCardInner}>
-                                    <View style={styles.summaryHeader}>
-                                        <Text style={styles.summaryTitle}>BET SUMMARY</Text>
-                                        <Text style={styles.summaryTotal}>{filledRowsCount} numbers · {validTotal.toLocaleString()} {realCurrency}</Text>
-                                    </View>
-
-                                    {groupedRows.map((group: any) => {
-                                        if (group.validCount === 0) return null;
-                                        return (
-                                            <View key={`sum-${group.id}`} style={styles.summaryGroupSection}>
-                                                <Text style={styles.summaryGroupLabel}>{group.label}</Text>
-                                                <View style={styles.summaryChips}>
-                                                    {group.rows.filter((r: any) => r.number !== '').map((r: any) => {
-                                                        const isValid = /^\d+$/.test(String(r.amount).trim()) && Number(r.amount) >= 1;
-                                                        return (
-                                                            <View key={r.id} style={[styles.miniChip, !isValid && styles.chipInvalid]}>
-                                                                <Text style={[styles.miniChipText, !isValid && styles.chipTextInvalid]}>
-                                                                    {r.number} · {r.amount || 0}
-                                                                </Text>
-                                                            </View>
-                                                        );
-                                                    })}
-                                                </View>
-                                            </View>
-                                        );
-                                    })}
-                                </View>
-                            </View>
-                        )}
-
-                        <View style={styles.fieldsetOuter}>
-                            <View style={styles.fieldsetInner}>
-                                <View style={styles.legendWrapper}><Text style={styles.legendText}>ထီဂဏန်းများ</Text></View>
-
-                                {groupedRows.map((group: any) => {
-                                    if (group.validCount === 0 && !group.isManual) return null;
-                                    const isExpanded = expandedGroups[group.id];
-
-                                    return (
-                                        <View key={group.id} style={styles.groupCardOuter}>
-                                            <View style={styles.groupCardInner}>
-                                                <View style={styles.groupHeaderRow}>
-                                                    <Pressable style={styles.groupTitleCol} onPress={() => toggleGroup(group.id)}>
-                                                        <MaterialIcons name={isExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="#9CA3AF" style={{ marginRight: 8 }} />
-                                                        <View>
-                                                            <Text style={styles.groupTitleText}>{group.label}</Text>
-                                                            <Text style={styles.groupSubtitleText}>ဂဏန်း {group.validCount} လုံး · {group.subtotal.toLocaleString()} {realCurrency}</Text>
-                                                        </View>
-                                                    </Pressable>
-
-                                                    <View style={styles.groupActionCol}>
-                                                        {!group.isManual && (
-                                                            <TextInput
-                                                                style={styles.groupAmtInput}
-                                                                keyboardType="number-pad"
-                                                                placeholder="Amt"
-                                                                placeholderTextColor="rgba(255,255,255,0.3)"
-                                                                value={group.groupAmount}
-                                                                onChangeText={(val) => updateGroupAmount(group.rows, val)}
-                                                            />
-                                                        )}
-                                                        <Pressable style={styles.groupDelBtn} onPress={() => removeGroup(group.rows)}>
-                                                            <MaterialIcons name="delete-outline" size={18} color="#9CA3AF" />
-                                                        </Pressable>
-                                                    </View>
-                                                </View>
-
-                                                {isExpanded && !group.isManual && group.validCount > 0 && (
-                                                    <View style={styles.groupChipsContainer}>
-                                                        {group.rows.filter((r: any) => r.number !== '').map((r: any) => (
-                                                            <View key={r.id} style={styles.miniChip}>
-                                                                <Text style={styles.miniChipText}>{r.number} · {r.amount || 0}</Text>
-                                                            </View>
-                                                        ))}
-                                                    </View>
-                                                )}
-
-                                                {isExpanded && group.isManual && (
-                                                    <View style={styles.manualEntriesContainer}>
-                                                        {group.rows.map((row: any) => (
-                                                            <View key={row.id} style={styles.manualRowCard}>
-                                                                <View style={styles.manualRowHeader}>
-                                                                    <View>
-                                                                        <Text style={styles.potentialWinLabel}>POTENTIAL WIN</Text>
-                                                                        <Text style={styles.potentialWinValue}>{row.amount ? `x ${(Number(row.amount) * 500).toLocaleString()}` : '—'}</Text>
-                                                                    </View>
-                                                                    <Pressable style={styles.closeBtnOuter} onPress={() => removeBetRow(row.id)}>
-                                                                        <View style={styles.closeBtnInner}><MaterialIcons name="close" size={16} color="#9CA3AF" /></View>
-                                                                    </Pressable>
-                                                                </View>
-                                                                <View style={styles.manualInputGrid}>
-                                                                    <View style={{ flex: 1 }}>
-                                                                        <Text style={styles.inputLabel}>ဂဏန်း (000-999)</Text>
-                                                                        <TextInput style={styles.inputInner} keyboardType="number-pad" maxLength={3} value={row.number} onChangeText={(val) => updateBetRow(row.id, 'number', val)} />
-                                                                    </View>
-                                                                    <View style={{ flex: 1 }}>
-                                                                        <Text style={styles.inputLabel}>ငွေပမာဏ</Text>
-                                                                        <TextInput style={styles.inputInner} keyboardType="number-pad" value={row.amount} onChangeText={(val) => updateBetRow(row.id, 'amount', val)} />
-                                                                    </View>
-                                                                </View>
-                                                            </View>
-                                                        ))}
-
-                                                        <Pressable style={styles.addBtnOuter} onPress={addBetRow}>
-                                                            <MaterialIcons name="add" size={24} color="#10B981" />
-                                                        </Pressable>
-                                                    </View>
-                                                )}
-                                            </View>
-                                        </View>
-                                    );
-                                })}
-
-                                <Pressable style={styles.clearBtnOuter} onPress={clearBetRows}>
-                                    <View style={styles.clearBtnInner}>
-                                        <MaterialIcons name="delete-outline" size={18} color="#F87171" />
-                                        <Text style={styles.clearBtnText}>အားလုံး ရှင်းမည်</Text>
-                                    </View>
-                                </Pressable>
-                            </View>
-                        </View>
-
-                        <TouchableOpacity
-                            activeOpacity={0.8}
-                            style={[
-                                styles.nextBtnInline,
-                                filledRowsCount > 0 ? { ...styles.activeGlow, opacity: 1 } : { opacity: 0.4 }
-                            ]}
-                            disabled={filledRowsCount === 0}
-                            onPress={() => setStep(3)}
-                        >
-                            <LinearGradient colors={['#34D399', '#10B981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.nextBtnInnerInline}>
-                                <Text style={styles.nextBtnTextInline}>ရှေ့သို့</Text>
-                                <MaterialIcons name="arrow-forward" size={20} color="#042F21" />
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </>
-                )}
-
-                {step === 3 && (
-                    <>
-                        <View style={styles.summaryCardOuter}>
-                            <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
-                                <Text style={styles.summaryTitle}>BET SUMMARY</Text>
-                                <View style={[styles.summaryChips, { marginVertical: 16 }]}>
-                                    {betRows.filter((r: any) => r.number !== '').map((row: any) => {
-                                        const amt = Number(row.amount);
-                                        const isValid = /^\d+$/.test(row.amount.trim()) && Number.isInteger(amt) && amt >= 1;
-                                        return (
-                                            <View key={row.id} style={[styles.chip, isValid ? styles.chipValid : styles.chipInvalid]}>
-                                                <Text style={[styles.chipText, isValid ? styles.chipTextValid : styles.chipTextInvalid]}>
-                                                    {row.number}
-                                                    {row.amount !== '' && <Text style={styles.chipAmountText}> · {row.amount}</Text>}
-                                                </Text>
-                                            </View>
-                                        );
-                                    })}
-                                </View>
-                                <View style={styles.divider} />
-                                <View style={styles.rowBetween}>
-                                    <Text style={styles.rowLabel}>Total</Text>
-                                    <Text style={styles.rowValueWhite}>{validTotal.toLocaleString()} {realCurrency}</Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        <View style={styles.summaryCardOuter}>
-                            <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
-                                <View style={[styles.rowBetween, { marginBottom: 12 }]}>
-                                    <Text style={styles.rowLabel}>လက်ကျန်ငွေ</Text>
-                                    <Text style={styles.rowValueWhite}>{realWalletBalance.toLocaleString()} {realCurrency}</Text>
-                                </View>
-                                <View style={styles.rowBetween}>
-                                    <Text style={styles.rowLabel}>ထိုးပြီးပါက ကျန်မည့်ငွေ</Text>
-                                    <Text style={[styles.rowValueColored, isInsufficient ? { color: '#F87171' } : { color: '#10B981' }]}>
-                                        {isInsufficient ? 'လက်ကျန်ငွေ မလုံလောက်ပါ' : `${balanceAfter.toLocaleString()} ${realCurrency}`}
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        <View style={styles.summaryCardOuter}>
-                            <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
-                                <Text style={[styles.summaryTitle, { marginBottom: 16 }]}>SECURITY PIN</Text>
-                                <TextInput style={styles.pinInput} keyboardType="number-pad" secureTextEntry maxLength={6} placeholder="ဂဏန်း ၆ လုံး ထည့်ပါ" placeholderTextColor="rgba(255,255,255,0.3)" value={pin} onChangeText={(val) => setPin(val.replace(/\D/g, '').slice(0, 6))} />
-                            </View>
-                        </View>
-
-                        {isInsufficient && (
-                            <TouchableOpacity
-                                activeOpacity={0.8}
-                                style={styles.topUpBtn}
-                                onPress={() => router.push('/wallet-profile/deposit')}
-                            >
-                                <Text style={styles.topUpBtnText}>→ Top up wallet</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        <View style={styles.actionsCardOuter}>
-                            <View style={styles.actionsCardInner}>
-                                <View style={[styles.rowBetween, { marginBottom: 16 }]}>
-                                    <Text style={styles.rowLabel}>ခန့်မှန်းစုစုပေါင်း:</Text>
-                                    <Text style={styles.rowValueWhite}>{validTotal.toLocaleString()} {realCurrency}</Text>
-                                </View>
-                                <View style={styles.grid2}>
-                                    <TouchableOpacity style={styles.stepBackBtn} onPress={() => setStep(2)}>
-                                        <MaterialIcons name="arrow-back" size={20} color="#FFF" />
-                                        <Text style={styles.stepBackText}>နောက်သို့</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.confirmBtn, (isInsufficient || pin.length !== 6 || mutation.isPending) && { opacity: 0.5 }]} disabled={isInsufficient || pin.length !== 6 || mutation.isPending} onPress={submitBet}>
-                                        <LinearGradient colors={['#34D399', '#10B981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.confirmBtnGradient}>
-                                            {mutation.isPending ? <ActivityIndicator color="#042F21" size="small" /> : <><Text style={styles.confirmBtnText}>လောင်းကြေး{'\n'}အတည်ပြုမည်</Text><MaterialIcons name="arrow-forward" size={20} color="#042F21" /></>}
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </View>
-                    </>
-                )}
-            </ScrollView>
+            <FlatList
+                style={styles.scrollFlex}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 20) + 120 }]}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                data={step === 2 ? groupedRows : [{ id: 'step3_view' }]}
+                keyExtractor={(item) => item.id}
+                ListHeaderComponent={step === 2 ? renderStep2Header : null}
+                renderItem={step === 2 ? renderStep2Group : renderStep3Content}
+                ListFooterComponent={step === 2 ? renderStep2Footer : null}
+            />
 
             <Modal visible={modalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{modalTitle} ({modalNumbers.length}) ကွက်</Text>
+                            <Text style={styles.modalTitle}>{modalTitle} ({modalNumbers.length}) {t('threed_detail.modal_kuet', 'ကွက်') as string}</Text>
                             <Pressable onPress={() => setModalVisible(false)}><MaterialIcons name="close" size={24} color="#9CA3AF" /></Pressable>
                         </View>
-                        <Text style={styles.modalLabel}>ငွေပမာဏ (MMK)</Text>
+                        <Text style={styles.modalLabel}>{t('threed_detail.amount_mmk', 'ငွေပမာဏ (MMK)') as string}</Text>
                         <TextInput style={styles.modalInput} keyboardType="number-pad" placeholder="1000" placeholderTextColor="#4B5563" value={modalAmt} onChangeText={setModalAmt} autoFocus={true} />
-                        <Text style={styles.modalLabel}>ပါဝင်သော ဂဏန်းများ</Text>
+                        <Text style={styles.modalLabel}>{t('threed_detail.modal_included_nums', 'ပါဝင်သော ဂဏန်းများ') as string}</Text>
                         <ScrollView style={styles.modalGridScroll} nestedScrollEnabled={true}>
                             <View style={styles.modalNumberGrid}>
                                 {modalNumbers.map((n, idx) => (
@@ -596,17 +642,56 @@ export default function ThreeDDetailScreen() {
                             </View>
                         </ScrollView>
                         <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalVisible(false)}><Text style={styles.modalCancelText}>ပယ်ဖျက်မည်</Text></TouchableOpacity>
-                            <TouchableOpacity style={styles.modalConfirmBtn} onPress={confirmCustomAlert}><LinearGradient colors={['#34D399', '#10B981']} style={styles.modalConfirmGrad}><Text style={styles.modalConfirmText}>အတည်ပြုသည်</Text></LinearGradient></TouchableOpacity>
+                            <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalVisible(false)}><Text style={styles.modalCancelText}>{t('threed_detail.modal_cancel', 'ပယ်ဖျက်မည်') as string}</Text></TouchableOpacity>
+                            <TouchableOpacity style={styles.modalConfirmBtn} onPress={confirmCustomAlert}><LinearGradient colors={['#34D399', '#10B981']} style={styles.modalConfirmGrad}><Text style={styles.modalConfirmText}>{t('threed_detail.modal_confirm', 'အတည်ပြုသည်') as string}</Text></LinearGradient></TouchableOpacity>
                         </View>
                     </View>
                 </View>
             </Modal>
 
-            <Animated.View style={[styles.toastContainer, { transform: [{ translateY: toastAnim }] }]}>
-                <MaterialIcons name="check-circle" size={20} color="#10B981" />
-                <Text style={styles.toastText}>{toastMsg}</Text>
-            </Animated.View>
+            <Modal transparent visible={customAlert.visible} animationType="fade">
+                <View style={styles.alertOverlay}>
+                    <View style={styles.alertBox}>
+                        <View style={[styles.alertIconWrap,
+                        customAlert.type === 'success' ? { backgroundColor: 'rgba(16, 185, 129, 0.2)' } :
+                            customAlert.type === 'warning' ? { backgroundColor: 'rgba(245, 158, 11, 0.2)' } :
+                                { backgroundColor: 'rgba(248, 113, 113, 0.2)' }
+                        ]}>
+                            <MaterialIcons
+                                name={customAlert.type === 'success' ? 'check-circle' : customAlert.type === 'warning' ? 'warning' : 'error'}
+                                size={32}
+                                color={customAlert.type === 'success' ? '#10B981' : customAlert.type === 'warning' ? '#F59E0B' : '#F87171'}
+                            />
+                        </View>
+                        <Text style={styles.alertTitle}>{customAlert.title}</Text>
+                        <Text style={styles.alertMessage}>{customAlert.message}</Text>
+
+                        <View style={styles.alertActions}>
+                            {customAlert.showCancel && (
+                                <TouchableOpacity style={styles.alertCancelBtn} onPress={() => setCustomAlert({ ...customAlert, visible: false })}>
+                                    <Text style={styles.alertCancelText}>{t('threed_detail.alert_cancel', 'မလုပ်ပါ') as string}</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                                style={[styles.alertConfirmBtn, customAlert.type === 'error' && { backgroundColor: '#F87171' }]}
+                                onPress={() => {
+                                    setCustomAlert({ ...customAlert, visible: false });
+                                    if (customAlert.onConfirm) customAlert.onConfirm();
+                                }}
+                            >
+                                <Text style={styles.alertConfirmText}>{t('threed_detail.alert_ok', 'အိုကေ') as string}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            <View style={styles.toastWrapper} pointerEvents="none">
+                <Animated.View style={[styles.toastContainer, toastStyle]}>
+                    <MaterialIcons name="check-circle" size={20} color="#10B981" />
+                    <Text style={styles.toastText}>{toastMessage}</Text>
+                </Animated.View>
+            </View>
 
         </KeyboardAvoidingView>
     );
@@ -615,27 +700,20 @@ export default function ThreeDDetailScreen() {
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#070D1F' },
 
-    toastContainer: {
-        position: 'absolute',
-        bottom: 50,
-        alignSelf: 'center',
-        backgroundColor: '#0B291D',
-        borderColor: '#10B981',
-        borderWidth: 1,
-        borderRadius: 12,
-        paddingHorizontal: 18,
-        paddingVertical: 14,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#10B981',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-        elevation: 8,
-        zIndex: 999999
-    },
+    toastWrapper: { position: 'absolute', left: 0, right: 0, bottom: 80, alignItems: 'center', justifyContent: 'center', zIndex: 9999, elevation: 10 },
+    toastContainer: { backgroundColor: '#0B291D', borderColor: '#10B981', borderWidth: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderRadius: 24, shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
     toastText: { color: '#34D399', fontSize: 14, fontWeight: 'bold', marginLeft: 8, letterSpacing: 0.5 },
+
+    alertOverlay: { flex: 1, backgroundColor: 'rgba(4, 10, 31, 0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    alertBox: { width: '100%', maxWidth: 320, backgroundColor: '#0F172A', borderRadius: 24, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    alertIconWrap: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+    alertTitle: { color: '#F8FAFC', fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
+    alertMessage: { color: '#94A3B8', fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+    alertActions: { flexDirection: 'row', gap: 12, width: '100%' },
+    alertCancelBtn: { flex: 1, height: 48, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    alertCancelText: { color: '#94A3B8', fontSize: 14, fontWeight: 'bold' },
+    alertConfirmBtn: { flex: 1, height: 48, backgroundColor: '#10B981', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    alertConfirmText: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
 
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 20 },
     backBtn: { marginRight: 12, padding: 4 },
@@ -669,7 +747,7 @@ const styles = StyleSheet.create({
     pasteInstruction: { color: '#9CA3AF', fontSize: 11, marginBottom: 12, lineHeight: 16 },
     pasteInput: { backgroundColor: '#050A1F', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10, minHeight: 80, color: '#FFF', fontSize: 16, padding: 12, textAlignVertical: 'top', marginBottom: 12 },
     pasteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#3B82F6', borderRadius: 10, paddingVertical: 14 },
-    pasteBtnText: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginLeft: 8 },
+    pasteBtnText: { color: '#FFF', fontSize: 13, fontWeight: 'bold', marginLeft: 8 },
     errorText: { marginTop: 10, fontSize: 11, color: '#ff9b93' },
 
     summaryCardOuter: { backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: 1, borderRadius: 16, marginBottom: 20 },
@@ -719,33 +797,10 @@ const styles = StyleSheet.create({
     clearBtnInner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(248, 113, 113, 0.1)', borderWidth: 1, borderColor: 'rgba(248, 113, 113, 0.3)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
     clearBtnText: { color: '#F87171', fontSize: 12, fontWeight: 'bold', marginLeft: 6 },
 
-    nextBtnInline: {
-        marginTop: 16,
-        marginBottom: 20,
-        borderRadius: 12,
-        backgroundColor: '#10B981',
-    },
-    activeGlow: {
-        shadowColor: '#34D399',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.6,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    nextBtnInnerInline: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        height: 56,
-        paddingHorizontal: 20,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    nextBtnTextInline: {
-        color: '#042F21',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
+    nextBtnInline: { marginTop: 16, marginBottom: 20, borderRadius: 12, backgroundColor: '#10B981' },
+    activeGlow: { shadowColor: '#34D399', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.6, shadowRadius: 12, elevation: 8 },
+    nextBtnInnerInline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 56, paddingHorizontal: 20, borderRadius: 12, overflow: 'hidden' },
+    nextBtnTextInline: { color: '#042F21', fontSize: 16, fontWeight: 'bold' },
 
     chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
     chipValid: { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' },

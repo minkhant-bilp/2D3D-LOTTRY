@@ -20,6 +20,7 @@ interface BetState {
     setBetRowsBulk: (rows: BetNumberRow[]) => void;
     setPin: (pin: string) => void;
     getValidAmountTotal: () => number;
+    addMultipleBets: (newBets: { number: string; amount: string }[]) => void;
 }
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -66,12 +67,18 @@ export const useBetStore = create<BetState>((set, get) => ({
             return total;
         }, 0);
     },
-      addMultipleBets: (newBets: { number: string, amount: string }[]) => set((state) => {
-    const rowsToAdd = newBets.map(bet => ({
-        id: Math.random().toString(36).substr(2, 9), 
-        number: bet.number,
-        amount: bet.amount
-    }));
-    return { betRows: [...state.betRows, ...rowsToAdd] };
-}),
+    
+    addMultipleBets: (newBets) => set((state) => {
+        const rowsToAdd = newBets.map(bet => ({
+            id: Math.random().toString(36).substr(2, 9), 
+            number: bet.number,
+            amount: bet.amount
+        }));
+
+        const existingRows = state.betRows.length === 1 && state.betRows[0].number === '' && state.betRows[0].amount === ''
+            ? []
+            : state.betRows;
+
+        return { betRows: [...existingRows, ...rowsToAdd] };
+    }),
 }));

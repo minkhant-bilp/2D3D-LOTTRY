@@ -1,31 +1,40 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'expo-router';
-import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useTranslation } from 'react-i18next';
 
 import { getThreeDHistoryAPI } from '../../api/main';
 
 type ThreeDHistoryEntry = { threed: string; stock_date: string; };
 
-function formatDrawDate(value: string): string {
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function formatDrawDate(value: string, t: any): string {
     if (!value) return '';
     const parsed = new Date(`${value}T00:00:00`);
     if (Number.isNaN(parsed.getTime())) return value;
 
-    return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const monthIndex = parsed.getMonth();
+    const monthName = MONTH_NAMES[monthIndex];
+    const translatedMonth = t(`month.${monthName.toLowerCase()}`, monthName);
+
+    return `${parsed.getDate()} ${translatedMonth} ${parsed.getFullYear()}`;
 }
 
 const RESULT_TABS = [
-    { id: '2d', to: '/results/twoDresult', label: '2D Results', description: 'Two-digit draws' },
-    { id: '3d', to: '/results/threeDresult', label: '3D Results', description: 'Three-digit draws' },
+    { id: '2d', to: '/results/twoDresult', labelKey: 'tab_2d_label', descKey: 'tab_2d_desc', defaultLabel: '2D Results', defaultDesc: 'Two-digit draws' },
+    { id: '3d', to: '/results/threeDresult', labelKey: 'tab_3d_label', descKey: 'tab_3d_desc', defaultLabel: '3D Results', defaultDesc: 'Three-digit draws' },
 ];
 
 export default function ThreeDResultsScreen() {
     const router = useRouter();
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
 
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['threeDHistory'],
@@ -41,6 +50,18 @@ export default function ThreeDResultsScreen() {
     const items: ThreeDHistoryEntry[] = data?.items || [];
     const isStale = data?.stale || false;
 
+    const processedItems = items.map(item => ({
+        ...item,
+        formattedDate: formatDrawDate(item.stock_date, t)
+    }));
+
+    const renderItem = useCallback(({ item }: { item: ThreeDHistoryEntry & { formattedDate: string } }) => (
+        <View style={styles.resultCard}>
+            <Text style={styles.resultDate}>{item.formattedDate}</Text>
+            <Text style={styles.resultNumber}>{item.threed}</Text>
+        </View>
+    ), []);
+
     return (
         <View style={styles.root}>
             <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
@@ -48,16 +69,14 @@ export default function ThreeDResultsScreen() {
                     <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
                 </Pressable>
                 <View style={styles.headerTextContainer}>
-                    <Text style={styles.eyebrow}>RESULT</Text>
-                    <Text style={styles.title}>Recent History</Text>
-                    <Text style={styles.desc}>Browse recent 2D and 3D draw cards.</Text>
+                    <Text style={styles.eyebrow}>{t('threed_result.eyebrow', 'RESULT') as string}</Text>
+                    <Text style={styles.title}>{t('threed_result.title', 'Recent History') as string}</Text>
+                    <Text style={styles.desc}>{t('threed_result.desc', 'Browse recent 2D and 3D draw cards.') as string}</Text>
                 </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-                <Text style={styles.sectionTitle}>Recent History</Text>
-
+            <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+                <Text style={styles.sectionTitle}>{t('threed_result.section_title', 'Recent History') as string}</Text>
                 <View style={styles.tabsContainer}>
                     {RESULT_TABS.map((tab) => {
                         const isActive = pathname.includes('threeDresult') && tab.id === '3d';
@@ -69,46 +88,58 @@ export default function ThreeDResultsScreen() {
                                     if (!isActive) router.replace(tab.to as any);
                                 }}
                             >
-                                <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{tab.label}</Text>
-                                <Text style={styles.tabDesc}>{tab.description}</Text>
+                                <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                                    {t(`threed_result.${tab.labelKey}`, tab.defaultLabel) as string}
+                                </Text>
+                                <Text style={styles.tabDesc}>
+                                    {t(`threed_result.${tab.descKey}`, tab.defaultDesc) as string}
+                                </Text>
                             </Pressable>
                         );
                     })}
                 </View>
+            </View>
 
-                {isLoading ? (
-                    <ActivityIndicator size="large" color="#51e1a5" style={{ marginTop: 60 }} />
-                ) : isError ? (
-                    <View style={styles.errorBox}>
-                        <Text style={styles.errorText}>
-                            {(error as any)?.message || 'Unable to load 3D results.'}
-                        </Text>
-                    </View>
-                ) : items.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <MaterialIcons name="inbox" size={48} color="#2A3A5C" />
-                        <Text style={styles.emptyTitle}>No data here</Text>
-                        <Text style={styles.emptyDesc}>No 3D results available yet.</Text>
-                    </View>
-                ) : (
-                    <View style={styles.listContainer}>
-                        {isStale && (
-                            <View style={styles.staleWarning}>
-                                <MaterialIcons name="cloud-off" size={16} color="rgba(252, 211, 77, 0.9)" />
-                                <Text style={styles.staleText}>Showing the last known results — the live feed is unreachable.</Text>
-                            </View>
-                        )}
+            {isLoading ? (
+                <ActivityIndicator size="large" color="#51e1a5" style={{ marginTop: 60 }} />
+            ) : isError ? (
+                <View style={[styles.errorBox, { marginHorizontal: 20 }]}>
+                    <Text style={styles.errorText}>
+                        {(error as any)?.message || (t('threed_result.err_fetch', 'Unable to load 3D results.') as string)}
+                    </Text>
+                </View>
+            ) : processedItems.length === 0 ? (
+                <View style={styles.emptyState}>
+                    <MaterialIcons name="inbox" size={48} color="#2A3A5C" />
+                    <Text style={styles.emptyTitle}>{t('threed_result.no_data', 'No data here') as string}</Text>
+                    <Text style={styles.emptyDesc}>{t('threed_result.empty_desc', 'No 3D results available yet.') as string}</Text>
+                </View>
+            ) : (
+                <View style={[styles.listContainer, { flex: 1, marginHorizontal: 20, marginBottom: Math.max(insets.bottom, 20) }]}>
+                    {isStale && (
+                        <View style={styles.staleWarning}>
+                            <MaterialIcons name="cloud-off" size={16} color="rgba(252, 211, 77, 0.9)" />
+                            <Text style={styles.staleText}>
+                                {t('threed_result.stale_warning', 'Showing the last known results — the live feed is unreachable.') as string}
+                            </Text>
+                        </View>
+                    )}
 
-                        {items.map((item) => (
-                            <View key={item.stock_date} style={styles.resultCard}>
-                                <Text style={styles.resultDate}>{formatDrawDate(item.stock_date)}</Text>
-                                <Text style={styles.resultNumber}>{item.threed}</Text>
-                            </View>
-                        ))}
-                    </View>
-                )}
-                <View style={{ height: 60 }}></View>
-            </ScrollView>
+                    <FlatList
+                        data={processedItems}
+                        keyExtractor={(item, index) => `${item.stock_date}-${index}`}
+                        renderItem={renderItem}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingBottom: 20 }}
+
+                        initialNumToRender={15}
+                        maxToRenderPerBatch={10}
+                        windowSize={5}
+                        removeClippedSubviews={true}
+                    />
+                </View>
+            )}
+            <View style={{ height: 60 }}></View>
         </View>
     );
 }

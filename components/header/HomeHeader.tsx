@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'expo-router';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getMe } from '@/api/main';
@@ -8,58 +9,42 @@ import { usePollingWhileVisible } from '@/hooks/usePollingWhileVisible';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function HomeHeader() {
-    const router = useRouter();
+    const { data: user } = useQuery({
+        queryKey: ['me'],
+        queryFn: async () => {
+            const res = await getMe();
+            return res.data?.user;
+        },
+        staleTime: 1000 * 60 * 5,
+    });
 
-    const [user, setUser] = useState<any>(null);
-
-    const wallet = useAppStore((state) => state.wallet);
-    const walletLoading = useAppStore((state) => state.walletLoading);
-    const notificationStats = useAppStore((state) => state.notificationStats);
+    const walletBalance = useAppStore((state) => state.wallet?.balance);
+    const walletCurrency = useAppStore((state) => state.wallet?.currency);
+    const unreadCount = useAppStore((state) => state.notificationStats?.unread ?? 0);
 
     const refreshWallet = useAppStore((state) => state.refreshWallet);
     const refreshNotifications = useAppStore((state) => state.refreshNotifications);
-
-    useEffect(() => {
-        let active = true;
-
-        getMe()
-            .then((response) => {
-                if (active) setUser(response.data?.user);
-            })
-            .catch(() => {
-                if (active) setUser(null);
-            });
-
-        return () => {
-            active = false;
-        };
-    }, []);
 
     usePollingWhileVisible(() => {
         refreshWallet();
         refreshNotifications();
     });
 
-    const unreadCount = notificationStats?.unread ?? 0;
-
     const displayName = user?.username?.trim() || user?.name?.trim() || user?.email || '';
     const avatarText = displayName ? displayName.slice(0, 2).toUpperCase() : '--';
 
-    const balanceText = walletLoading
-        ? '–'
-        : wallet != null
-            ? `${wallet.currency ?? 'MMK'} ${wallet.balance.toLocaleString()}`
-            : '–';
+    const balanceText = walletBalance != null
+        ? `${walletCurrency ?? 'MMK'} ${walletBalance.toLocaleString()}`
+        : '–';
 
     return (
         <View style={styles.header}>
             <View style={styles.leftSection}>
-                <Pressable
-                    style={styles.avatarButton}
-                    onPress={() => router.push('/user/profile')}
-                >
-                    <Text style={styles.avatarText}>{avatarText}</Text>
-                </Pressable>
+                <Link href="/user/profile" asChild>
+                    <Pressable style={styles.avatarButton}>
+                        <Text style={styles.avatarText}>{avatarText}</Text>
+                    </Pressable>
+                </Link>
 
                 <View style={styles.userInfo}>
                     <Text style={styles.userName} numberOfLines={1}>
@@ -72,22 +57,23 @@ export default function HomeHeader() {
                 </View>
             </View>
 
-            <Pressable
-                style={({ pressed }) => [
-                    styles.notificationButton,
-                    pressed && styles.notificationButtonPressed
-                ]}
-                onPress={() => router.push('/noti/notifications')}
-            >
-                <MaterialIcons name="notifications" size={22} color="#51e1a5" />
-                {unreadCount > 0 && (
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                        </Text>
-                    </View>
-                )}
-            </Pressable>
+            <Link href="/noti/notifications" asChild>
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.notificationButton,
+                        pressed && styles.notificationButtonPressed
+                    ]}
+                >
+                    <MaterialIcons name="notifications" size={22} color="#51e1a5" />
+                    {unreadCount > 0 && (
+                        <View style={styles.badge}>
+                            <Text style={styles.badgeText}>
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </Text>
+                        </View>
+                    )}
+                </Pressable>
+            </Link>
         </View>
     );
 }

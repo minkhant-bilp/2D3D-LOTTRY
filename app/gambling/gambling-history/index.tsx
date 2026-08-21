@@ -1,9 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useTranslation } from 'react-i18next';
 
 import { listBetsAPI } from '@/api/main';
 import { listenForBetNotifications } from '@/utils/betNotificationBus';
@@ -20,11 +22,11 @@ type Bet = {
     target_opentime?: string | null;
 };
 
-const STATUS_CONFIG: Record<Bet['status'], { label: string; bgColor: string; textColor: string; borderColor: string }> = {
-    PENDING: { label: 'Pending', bgColor: 'rgba(245, 158, 11, 0.15)', textColor: '#FCD34D', borderColor: 'rgba(245, 158, 11, 0.25)' },
-    ACCEPTED: { label: 'Accepted', bgColor: 'rgba(0, 230, 118, 0.12)', textColor: '#00e676', borderColor: 'rgba(0, 230, 118, 0.25)' },
-    REJECTED: { label: 'Rejected', bgColor: 'rgba(239, 68, 68, 0.12)', textColor: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.25)' },
-    REFUNDED: { label: 'Refunded', bgColor: 'rgba(59, 130, 246, 0.12)', textColor: '#60A5FA', borderColor: 'rgba(59, 130, 246, 0.25)' },
+const STATUS_CONFIG: Record<Bet['status'], { labelKey: string; defaultLabel: string; bgColor: string; textColor: string; borderColor: string }> = {
+    PENDING: { labelKey: 'status_pending', defaultLabel: 'Pending', bgColor: 'rgba(245, 158, 11, 0.15)', textColor: '#FCD34D', borderColor: 'rgba(245, 158, 11, 0.25)' },
+    ACCEPTED: { labelKey: 'status_accepted', defaultLabel: 'Accepted', bgColor: 'rgba(0, 230, 118, 0.12)', textColor: '#00e676', borderColor: 'rgba(0, 230, 118, 0.25)' },
+    REJECTED: { labelKey: 'status_rejected', defaultLabel: 'Rejected', bgColor: 'rgba(239, 68, 68, 0.12)', textColor: '#EF4444', borderColor: 'rgba(239, 68, 68, 0.25)' },
+    REFUNDED: { labelKey: 'status_refunded', defaultLabel: 'Refunded', bgColor: 'rgba(59, 130, 246, 0.12)', textColor: '#60A5FA', borderColor: 'rgba(59, 130, 246, 0.25)' },
 };
 
 function formatOpenTime(time: string | null | undefined) {
@@ -45,6 +47,7 @@ export default function GamblingHistoryScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
 
     const {
         data,
@@ -77,9 +80,82 @@ export default function GamblingHistoryScreen() {
         return () => unsubscribe();
     }, [queryClient]);
 
-    const bets = useMemo(() => {
-        return data?.pages.flatMap((page) => page.bets) || [];
-    }, [data]);
+    const bets = data?.pages.flatMap((page) => page.bets) || [];
+
+    const renderItem = useCallback(({ item: bet }: { item: Bet }) => {
+        const status = STATUS_CONFIG[bet.status] || STATUS_CONFIG.PENDING;
+        return (
+            <View style={styles.listItem}>
+                <View style={styles.itemHeader}>
+                    <View style={styles.betTypeBadge}>
+                        <Text style={styles.betTypeText}>{bet.bet_type}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: status.bgColor, borderColor: status.borderColor }]}>
+                        <Text style={[styles.statusText, { color: status.textColor }]}>
+                            {t(`bet_history.${status.labelKey}`, status.defaultLabel) as string}
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={styles.amountContainer}>
+                    <Text style={styles.wagerLabel}>{t('bet_history.total_wager', 'TOTAL WAGER') as string}</Text>
+                    <Text style={styles.wagerAmount}>
+                        {bet.total_amount} <Text style={styles.wagerCurrency}>{bet.currency}</Text>
+                    </Text>
+                </View>
+
+                <View style={styles.numbersGrid}>
+                    {bet.bet_numbers.map((n, i) => (
+                        <View key={i} style={styles.numberBadge}>
+                            <Text style={styles.numberText}>{formatBetNumber(n.number, bet.bet_type)}</Text>
+                            <Text style={styles.numberAmount}>× {n.amount}</Text>
+                        </View>
+                    ))}
+                </View>
+
+                <View style={styles.metaRow}>
+                    <Text style={styles.metaDate}>{bet.stock_date}</Text>
+                    {formatOpenTime(bet.target_opentime) && (
+                        <View style={styles.timeBadge}>
+                            <MaterialIcons name="schedule" size={14} color="#00e676" />
+                            <Text style={styles.timeText}>{formatOpenTime(bet.target_opentime)}</Text>
+                        </View>
+                    )}
+                </View>
+            </View>
+        );
+    }, [t]);
+
+    const renderEmptyComponent = () => {
+        if (isLoading) {
+            return <ActivityIndicator size="large" color="#00e676" style={{ marginTop: 60 }} />;
+        }
+        if (isError) {
+            return (
+                <View style={styles.emptyState}>
+                    <Text style={[styles.emptyDesc, { color: '#EF4444' }]}>
+                        {error?.message || (t('bet_history.err_fetch', 'Unable to load bet history. Please try again.') as string)}
+                    </Text>
+                </View>
+            );
+        }
+        return (
+            <View style={styles.emptyState}>
+                <View style={styles.emptyIconWrapper}>
+                    <MaterialIcons name="inbox" size={32} color="#374151" style={styles.emptyIcon} />
+                </View>
+                <Text style={styles.emptyTitle}>{t('bet_history.no_data', 'No data here') as string}</Text>
+                <Text style={styles.emptyDesc}>
+                    {t('bet_history.empty_desc', 'လောင်းကြေး မရှိသေးပါ။ ပထမဆုံး\nလောင်းကြေးလုပ်ရန် Bets tab သို့ သွားပါ') as string}
+                </Text>
+            </View>
+        );
+    };
+
+    const renderFooterComponent = () => {
+        if (!isFetchingNextPage) return null;
+        return <ActivityIndicator size="small" color="#8A9BB3" style={{ marginVertical: 20 }} />;
+    };
 
     return (
         <View style={styles.root}>
@@ -88,92 +164,32 @@ export default function GamblingHistoryScreen() {
                     <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
                 </Pressable>
                 <View style={styles.headerTextContainer}>
-                    <Text style={styles.eyebrow}>လုပ်ဆောင်မှု</Text>
-                    <Text style={styles.title}>လောင်းကြေးမှတ်တမ်း</Text>
-                    <Text style={styles.desc}>သင့်ယခင်လောင်းကြေးများ၊ ရလဒ်နှင့် ငွေပေးချေမှု အခြေအနေ</Text>
+                    <Text style={styles.eyebrow}>{t('bet_history.eyebrow', 'လုပ်ဆောင်မှု') as string}</Text>
+                    <Text style={styles.title}>{t('bet_history.title', 'လောင်းကြေးမှတ်တမ်း') as string}</Text>
+                    <Text style={styles.desc}>{t('bet_history.desc', 'သင့်ယခင်လောင်းကြေးများ၊ ရလဒ်နှင့် ငွေပေးချေမှု အခြေအနေ') as string}</Text>
                 </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {isLoading ? (
-                    <ActivityIndicator size="large" color="#00e676" style={{ marginTop: 60 }} />
-                ) : isError ? (
-                    <View style={styles.emptyState}>
-                        <Text style={[styles.emptyDesc, { color: '#EF4444' }]}>
-                            {error?.message || 'Unable to load bet history. Please try again.'}
-                        </Text>
-                    </View>
-                ) : bets.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <View style={styles.emptyIconWrapper}>
-                            <MaterialIcons name="inbox" size={32} color="#374151" style={styles.emptyIcon} />
-                        </View>
-                        <Text style={styles.emptyTitle}>No data here</Text>
-                        <Text style={styles.emptyDesc}>
-                            လောင်းကြေး မရှိသေးပါ။ ပထမဆုံး{'\n'}လောင်းကြေးလုပ်ရန် Bets tab သို့ သွားပါ
-                        </Text>
-                    </View>
-                ) : (
-                    <View style={styles.listContainer}>
-                        {bets.map((bet: Bet) => {
-                            const status = STATUS_CONFIG[bet.status] || STATUS_CONFIG.PENDING;
-                            return (
-                                <View key={bet.id} style={styles.listItem}>
-                                    <View style={styles.itemHeader}>
-                                        <View style={styles.betTypeBadge}>
-                                            <Text style={styles.betTypeText}>{bet.bet_type}</Text>
-                                        </View>
-                                        <View style={[styles.statusBadge, { backgroundColor: status.bgColor, borderColor: status.borderColor }]}>
-                                            <Text style={[styles.statusText, { color: status.textColor }]}>{status.label}</Text>
-                                        </View>
-                                    </View>
+            <FlatList
+                data={bets}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                ListEmptyComponent={renderEmptyComponent}
+                ListFooterComponent={renderFooterComponent}
+                contentContainerStyle={[styles.scrollContent, bets.length > 0 && { gap: 12 }]}
+                showsVerticalScrollIndicator={false}
 
-                                    <View style={styles.amountContainer}>
-                                        <Text style={styles.wagerLabel}>TOTAL WAGER</Text>
-                                        <Text style={styles.wagerAmount}>
-                                            {bet.total_amount} <Text style={styles.wagerCurrency}>{bet.currency}</Text>
-                                        </Text>
-                                    </View>
-
-                                    <View style={styles.numbersGrid}>
-                                        {bet.bet_numbers.map((n, i) => (
-                                            <View key={i} style={styles.numberBadge}>
-                                                <Text style={styles.numberText}>{formatBetNumber(n.number, bet.bet_type)}</Text>
-                                                <Text style={styles.numberAmount}>× {n.amount}</Text>
-                                            </View>
-                                        ))}
-                                    </View>
-
-                                    <View style={styles.metaRow}>
-                                        <Text style={styles.metaDate}>{bet.stock_date}</Text>
-                                        {formatOpenTime(bet.target_opentime) && (
-                                            <View style={styles.timeBadge}>
-                                                <MaterialIcons name="schedule" size={14} color="#00e676" />
-                                                <Text style={styles.timeText}>{formatOpenTime(bet.target_opentime)}</Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                </View>
-                            );
-                        })}
-
-                        {hasNextPage && (
-                            <TouchableOpacity
-                                activeOpacity={0.7}
-                                style={styles.loadMoreBtn}
-                                onPress={() => fetchNextPage()}
-                                disabled={isFetchingNextPage}
-                            >
-                                {isFetchingNextPage ? (
-                                    <ActivityIndicator size="small" color="#8A9BB3" />
-                                ) : (
-                                    <Text style={styles.loadMoreText}>Load More</Text>
-                                )}
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                )}
-            </ScrollView>
+                onEndReached={() => {
+                    if (hasNextPage && !isFetchingNextPage) {
+                        fetchNextPage();
+                    }
+                }}
+                onEndReachedThreshold={0.5}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                removeClippedSubviews={true}
+            />
         </View>
     );
 }

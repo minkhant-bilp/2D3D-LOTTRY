@@ -5,14 +5,18 @@ import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTranslation } from 'react-i18next';
+
 export default function ExploreTab() {
   const insets = useSafeAreaInsets();
+
+  const { t } = useTranslation();
 
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-        <Text style={styles.eyebrow}>Play</Text>
-        <Text style={styles.title}>Bet Hub</Text>
+        <Text style={styles.eyebrow}>{t('explore.eyebrow', 'Play') as string}</Text>
+        <Text style={styles.title}>{t('explore.title', 'Bet Hub') as string}</Text>
       </View>
 
       <ScrollView
@@ -73,5 +77,3 @@ const styles = StyleSheet.create({
     gap: 24,
   },
 });
-
-

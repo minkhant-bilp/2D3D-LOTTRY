@@ -3,6 +3,8 @@ import { Link } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
+
 const ACTIVITY_ITEMS = [
     {
         id: 'bet-history',
@@ -35,9 +37,11 @@ const ACTIVITY_ITEMS = [
 ];
 
 export default function BetActivityGrid() {
+    const { t } = useTranslation();
+
     return (
         <View style={styles.container}>
-            <Text style={styles.sectionTitle}>ACTIVITY</Text>
+            <Text style={styles.sectionTitle}>{t('activity.section_title', 'ACTIVITY') as string}</Text>
             <View style={styles.grid}>
                 {ACTIVITY_ITEMS.map(({ id, title, subtitle, path, icon }) => (
                     <View key={id} style={styles.cardWrapper}>
@@ -50,8 +54,12 @@ export default function BetActivityGrid() {
                                                 <CardIcon src={icon} color="#00e676" size={64} />
                                             </View>
                                             <View style={styles.textContainer}>
-                                                <Text style={styles.label}>{title}</Text>
-                                                <Text style={styles.caption}>{subtitle}</Text>
+                                                <Text style={styles.label}>
+                                                    {t(`activity.${id}_title`, title) as string}
+                                                </Text>
+                                                <Text style={styles.caption}>
+                                                    {t(`activity.${id}_subtitle`, subtitle) as string}
+                                                </Text>
                                             </View>
                                         </View>
                                     </View>

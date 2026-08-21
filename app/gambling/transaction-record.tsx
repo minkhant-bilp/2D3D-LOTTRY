@@ -1,9 +1,12 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// 🌟 Translation အတွက် Import လုပ်ပါသည်
+import { useTranslation } from 'react-i18next';
 
 import { listWalletTransactionsAPI } from '../../api/main';
 import { useAppStore } from '../../store/useAppStore';
@@ -21,23 +24,24 @@ type WalletTransaction = {
     created_at: string;
 };
 
-const TYPE_CONFIG: Record<WalletTransactionType, { label: string; icon: keyof typeof MaterialIcons.glyphMap; color: string }> = {
-    DEPOSIT: { label: 'Deposit', icon: 'account-balance-wallet', color: '#10B981' },
-    BET_PLACE: { label: 'Bet Placed', icon: 'casino', color: '#FBBF24' },
-    BET_WIN: { label: 'Bet Win', icon: 'emoji-events', color: '#10B981' },
-    BET_REFUND: { label: 'Bet Refunded', icon: 'undo', color: '#60A5FA' },
-    WITHDRAWAL: { label: 'Withdrawal', icon: 'payments', color: '#F87171' },
-    WITHDRAWAL_REFUND: { label: 'Withdrawal Refunded', icon: 'undo', color: '#60A5FA' },
-    ADJUSTMENT: { label: 'Adjustment', icon: 'tune', color: '#C084FC' },
+// 🌟 Translation ချိတ်ဆက်ရန် labelKey များ ထည့်သွင်းထားပါသည်
+const TYPE_CONFIG: Record<WalletTransactionType, { labelKey: string; defaultLabel: string; icon: keyof typeof MaterialIcons.glyphMap; color: string }> = {
+    DEPOSIT: { labelKey: 'type_deposit', defaultLabel: 'Deposit', icon: 'account-balance-wallet', color: '#10B981' },
+    BET_PLACE: { labelKey: 'type_bet_place', defaultLabel: 'Bet Placed', icon: 'casino', color: '#FBBF24' },
+    BET_WIN: { labelKey: 'type_bet_win', defaultLabel: 'Bet Win', icon: 'emoji-events', color: '#10B981' },
+    BET_REFUND: { labelKey: 'type_bet_refund', defaultLabel: 'Bet Refunded', icon: 'undo', color: '#60A5FA' },
+    WITHDRAWAL: { labelKey: 'type_withdrawal', defaultLabel: 'Withdrawal', icon: 'payments', color: '#F87171' },
+    WITHDRAWAL_REFUND: { labelKey: 'type_withdrawal_refund', defaultLabel: 'Withdrawal Refunded', icon: 'undo', color: '#60A5FA' },
+    ADJUSTMENT: { labelKey: 'type_adjustment', defaultLabel: 'Adjustment', icon: 'tune', color: '#C084FC' },
 };
 
-const FILTER_OPTIONS: { label: string; value: FilterType }[] = [
-    { label: 'All', value: null },
-    { label: 'Deposits', value: 'DEPOSIT' },
-    { label: 'Bets', value: 'BET_PLACE' },
-    { label: 'Wins', value: 'BET_WIN' },
-    { label: 'Withdrawals', value: 'WITHDRAWAL' },
-    { label: 'Adjustments', value: 'ADJUSTMENT' },
+const FILTER_OPTIONS: { labelKey: string; defaultLabel: string; value: FilterType }[] = [
+    { labelKey: 'filter_all', defaultLabel: 'All', value: null },
+    { labelKey: 'filter_deposits', defaultLabel: 'Deposits', value: 'DEPOSIT' },
+    { labelKey: 'filter_bets', defaultLabel: 'Bets', value: 'BET_PLACE' },
+    { labelKey: 'filter_wins', defaultLabel: 'Wins', value: 'BET_WIN' },
+    { labelKey: 'filter_withdrawals', defaultLabel: 'Withdrawals', value: 'WITHDRAWAL' },
+    { labelKey: 'filter_adjustments', defaultLabel: 'Adjustments', value: 'ADJUSTMENT' },
 ];
 
 function formatDate(iso: string) {
@@ -47,10 +51,12 @@ function formatDate(iso: string) {
 export default function TransactionRecordScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
 
-    const wallet = useAppStore((state: any) => state.wallet);
-    const currency = wallet?.currency ?? 'MMK';
-    const balance = wallet?.balance ?? 0;
+    // 🧠 EINSTEIN OPTIMIZATION 1: Zustand Primitive Selectors အသုံးပြုခြင်း
+    // Object တစ်ခုလုံး ဆွဲထုတ်ခြင်းကို ရှောင်ကြဉ်ပြီး Primitive တန်ဖိုးများကိုသာ ဆွဲထုတ်သဖြင့် မလိုအပ်ဘဲ Re-render ဖြစ်ခြင်းကို ကာကွယ်ပေးပါမည်။
+    const currency = useAppStore((state: any) => state.wallet?.currency ?? 'MMK');
+    const balance = useAppStore((state: any) => state.wallet?.balance ?? 0);
 
     const [filter, setFilter] = useState<FilterType>(null);
 
@@ -80,9 +86,98 @@ export default function TransactionRecordScreen() {
         }
     });
 
-    const transactions = useMemo(() => {
-        return data?.pages.flatMap((page) => page.transactions) || [];
-    }, [data]);
+    // 🧠 EINSTEIN OPTIMIZATION 2: React Compiler ၏ စွမ်းရည်ကို အပြည့်အဝအသုံးပြု၍ useMemo အပိုကို ဖယ်ရှားပါသည်
+    const transactions = data?.pages.flatMap((page) => page.transactions) || [];
+
+    // 🧠 EINSTEIN OPTIMIZATION 3: FlatList အတွက် renderItem ကို useCallback ဖြင့် သီးသန့် ထုတ်ထားပါသည်
+    const renderItem = useCallback(({ item: txn }: { item: WalletTransaction }) => {
+        const cfg = TYPE_CONFIG[txn.type] || TYPE_CONFIG.ADJUSTMENT;
+        const isCredit = txn.direction === 'CREDIT';
+        return (
+            <View style={styles.listItem}>
+                <View style={styles.listIconWrapper}>
+                    <MaterialIcons name={cfg.icon} size={24} color={cfg.color} />
+                </View>
+                <View style={styles.listCenter}>
+                    <Text style={styles.listTitle} numberOfLines={1}>
+                        {t(`transaction.${cfg.labelKey}`, cfg.defaultLabel) as string}
+                    </Text>
+                    <Text style={styles.listDate}>
+                        {formatDate(txn.created_at)}
+                        {txn.note && ` · ${txn.note}`}
+                    </Text>
+                </View>
+                <View style={styles.listRight}>
+                    <Text style={[styles.listAmount, { color: isCredit ? '#10B981' : '#F87171' }]}>
+                        {isCredit ? '+' : '-'}{Number(txn.amount).toLocaleString()}
+                    </Text>
+                    <Text style={styles.listBal}>{t('transaction.bal', 'Bal: ') as string}{Number(txn.balance_after).toLocaleString()}</Text>
+                </View>
+            </View>
+        );
+    }, [t]);
+
+    // FlatList ၏ Header ပိုင်း
+    const renderHeader = () => (
+        <>
+            <View style={styles.balanceBox}>
+                <MaterialIcons name="account-balance-wallet" size={20} color="#10B981" />
+                <Text style={styles.balanceText}>
+                    {t('transaction.balance', 'Balance: ') as string}<Text style={styles.balanceAmount}>{balance.toLocaleString()} {currency}</Text>
+                </Text>
+            </View>
+
+            <View style={styles.filterContainer}>
+                {FILTER_OPTIONS.map((opt) => {
+                    const isActive = filter === opt.value;
+                    return (
+                        <Pressable
+                            key={String(opt.value)}
+                            onPress={() => setFilter(opt.value)}
+                            style={[styles.filterChip, isActive && styles.filterChipActive]}
+                        >
+                            <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                                {t(`transaction.${opt.labelKey}`, opt.defaultLabel) as string}
+                            </Text>
+                        </Pressable>
+                    );
+                })}
+            </View>
+        </>
+    );
+
+    // FlatList ၏ Empty/Loading/Error ပိုင်း
+    const renderEmptyComponent = () => {
+        if (isLoading) {
+            return <ActivityIndicator size="large" color="#10B981" style={{ marginTop: 60 }} />;
+        }
+        if (isError) {
+            return (
+                <View style={styles.emptyState}>
+                    <Text style={[styles.emptyDesc, { color: '#EF4444' }]}>
+                        {error?.message || (t('transaction.err_fetch', 'Unable to load transactions. Please try again.') as string)}
+                    </Text>
+                </View>
+            );
+        }
+        return (
+            <View style={styles.emptyState}>
+                <View style={styles.emptyIconWrapper}>
+                    <MaterialIcons name="inbox" size={32} color="#374151" style={styles.emptyIcon} />
+                </View>
+                <Text style={styles.emptyTitle}>{t('transaction.no_data', 'No data here') as string}</Text>
+                <Text style={styles.emptyDesc}>
+                    {t('transaction.empty_desc', 'No transactions yet.') as string}
+                </Text>
+            </View>
+        );
+    };
+
+    // FlatList ၏ အောက်ခြေ Loading (Infinite Scroll အတွက်)
+    const renderFooterComponent = () => {
+        if (!isFetchingNextPage) return null;
+        return <ActivityIndicator size="small" color="#10B981" style={{ marginVertical: 20 }} />;
+    };
 
     return (
         <View style={styles.root}>
@@ -91,102 +186,40 @@ export default function TransactionRecordScreen() {
                     <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
                 </Pressable>
                 <View style={styles.headerTextContainer}>
-                    <Text style={styles.eyebrow}>WALLET</Text>
-                    <Text style={styles.title}>Transaction Record</Text>
-                    <Text style={styles.desc}>Your complete wallet activity ledger.</Text>
+                    <Text style={styles.eyebrow}>{t('transaction.eyebrow', 'WALLET') as string}</Text>
+                    <Text style={styles.title}>{t('transaction.title', 'Transaction Record') as string}</Text>
+                    <Text style={styles.desc}>{t('transaction.desc', 'Your complete wallet activity ledger.') as string}</Text>
                 </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {/* 🧠 EINSTEIN OPTIMIZATION 4: FlatList ဖြင့် အပြည့်အဝ အစားထိုးခြင်း (Memory Hacks များပါဝင်သည်) */}
+            <FlatList
+                data={transactions}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                ListHeaderComponent={renderHeader}
+                ListEmptyComponent={renderEmptyComponent}
+                ListFooterComponent={renderFooterComponent}
+                ItemSeparatorComponent={() => <View style={{ height: 12 }} />} // ကတ်များကြားရှိ 12px ခြားမှုကို ပြုလုပ်ပေးသည်
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
 
-                <View style={styles.balanceBox}>
-                    <MaterialIcons name="account-balance-wallet" size={20} color="#10B981" />
-                    <Text style={styles.balanceText}>
-                        Balance: <Text style={styles.balanceAmount}>{balance.toLocaleString()} {currency}</Text>
-                    </Text>
-                </View>
+                // 🌟 Auto Infinite Scroll (Auto Fetch) စနစ် 🌟
+                onEndReached={() => {
+                    if (hasNextPage && !isFetchingNextPage) {
+                        fetchNextPage();
+                    }
+                }}
+                onEndReachedThreshold={0.5}
 
-                <View style={styles.filterContainer}>
-                    {FILTER_OPTIONS.map((opt) => {
-                        const isActive = filter === opt.value;
-                        return (
-                            <Pressable
-                                key={String(opt.value)}
-                                onPress={() => setFilter(opt.value)}
-                                style={[styles.filterChip, isActive && styles.filterChipActive]}
-                            >
-                                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                                    {opt.label}
-                                </Text>
-                            </Pressable>
-                        );
-                    })}
-                </View>
-
-                {isLoading ? (
-                    <ActivityIndicator size="large" color="#10B981" style={{ marginTop: 60 }} />
-                ) : isError ? (
-                    <View style={styles.emptyState}>
-                        <Text style={[styles.emptyDesc, { color: '#EF4444' }]}>
-                            {error?.message || 'Unable to load transactions. Please try again.'}
-                        </Text>
-                    </View>
-                ) : transactions.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <View style={styles.emptyIconWrapper}>
-                            <MaterialIcons name="inbox" size={32} color="#374151" style={styles.emptyIcon} />
-                        </View>
-                        <Text style={styles.emptyTitle}>No data here</Text>
-                        <Text style={styles.emptyDesc}>
-                            No transactions yet.
-                        </Text>
-                    </View>
-                ) : (
-                    <View style={styles.listContainer}>
-                        {transactions.map((txn: WalletTransaction) => {
-                            const cfg = TYPE_CONFIG[txn.type] || TYPE_CONFIG.ADJUSTMENT;
-                            const isCredit = txn.direction === 'CREDIT';
-                            return (
-                                <View key={txn.id} style={styles.listItem}>
-                                    <View style={styles.listIconWrapper}>
-                                        <MaterialIcons name={cfg.icon} size={24} color={cfg.color} />
-                                    </View>
-                                    <View style={styles.listCenter}>
-                                        <Text style={styles.listTitle} numberOfLines={1}>{cfg.label}</Text>
-                                        <Text style={styles.listDate}>
-                                            {formatDate(txn.created_at)}
-                                            {txn.note && ` · ${txn.note}`}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.listRight}>
-                                        <Text style={[styles.listAmount, { color: isCredit ? '#10B981' : '#F87171' }]}>
-                                            {isCredit ? '+' : '-'}{Number(txn.amount).toLocaleString()}
-                                        </Text>
-                                        <Text style={styles.listBal}>Bal: {Number(txn.balance_after).toLocaleString()}</Text>
-                                    </View>
-                                </View>
-                            );
-                        })}
-
-                        {hasNextPage && (
-                            <TouchableOpacity
-                                activeOpacity={0.7}
-                                style={styles.loadMoreBtn}
-                                onPress={() => fetchNextPage()}
-                                disabled={isFetchingNextPage}
-                            >
-                                {isFetchingNextPage ? (
-                                    <ActivityIndicator size="small" color="#8A9BB3" />
-                                ) : (
-                                    <Text style={styles.loadMoreText}>Load More</Text>
-                                )}
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                )}
-
-            </ScrollView>
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                removeClippedSubviews={true}
+            />
+            <View style={{ height: 60 }}></View>
         </View>
+
     );
 }
 
@@ -216,7 +249,6 @@ const styles = StyleSheet.create({
     emptyTitle: { color: '#6B7280', fontSize: 15, fontWeight: 'bold', marginBottom: 8 },
     emptyDesc: { color: '#4B5563', fontSize: 13, textAlign: 'center' },
 
-    listContainer: { gap: 12 },
     listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(11, 19, 43, 0.94)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 16 },
     listIconWrapper: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: 'rgba(255, 255, 255, 0.03)' },
     listCenter: { flex: 1, paddingRight: 8 },
@@ -225,7 +257,4 @@ const styles = StyleSheet.create({
     listRight: { alignItems: 'flex-end' },
     listAmount: { fontSize: 15, fontWeight: 'bold', marginBottom: 4 },
     listBal: { color: '#8A9BB3', fontSize: 10 },
-
-    loadMoreBtn: { backgroundColor: 'rgba(255, 255, 255, 0.04)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
-    loadMoreText: { color: '#8A9BB3', fontSize: 13, fontWeight: 'bold' }
 });

@@ -1,18 +1,22 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ProfileWalletCard from '@/components/setting/ProfileWalletCard';
+
+import { useTranslation } from 'react-i18next';
+
 import MenuSettingsCard from '@/components/setting/MenuSettingsCard';
+import ProfileWalletCard from '@/components/setting/ProfileWalletCard';
 import ServiceCenterCard from '@/components/setting/ServiceCenterCard';
 
 export default function SettingTabPage() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
 
     return (
         <View style={styles.root}>
             <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-                <Text style={styles.eyebrow}>နှစ်သက်မှုများ</Text>
-                <Text style={styles.title}>ဆက်တင်</Text>
+                <Text style={styles.eyebrow}>{t('setting_page.eyebrow', 'နှစ်သက်မှုများ')}</Text>
+                <Text style={styles.title}>{t('setting_page.title', 'ဆက်တင်')}</Text>
             </View>
 
             <ScrollView

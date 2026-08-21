@@ -1,8 +1,10 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { useTranslation } from 'react-i18next';
 import LogoutButton from './LogOut';
 
 type ServiceItem = {
@@ -28,11 +30,11 @@ const serviceItems: ServiceItem[] = [
 ];
 
 export default function ServiceCenterCard() {
-    const router = useRouter();
+    const { t } = useTranslation();
 
     return (
         <View style={styles.container}>
-            <Text style={styles.sectionTitle}>ဝန်ဆောင်မှုစင်တာ</Text>
+            <Text style={styles.sectionTitle}>{t('service.title', 'ဝန်ဆောင်မှုစင်တာ') as string}</Text>
 
             <View style={styles.cardWrapper}>
                 <LinearGradient
@@ -42,29 +44,31 @@ export default function ServiceCenterCard() {
                     style={styles.cardGradient}
                 >
                     {serviceItems.map((item, index) => (
-                        <Pressable
-                            key={item.id}
-                            style={({ pressed }) => [
-                                styles.row,
-                                index !== serviceItems.length - 1 && styles.rowBorder,
-                                pressed && styles.rowPressed
-                            ]}
-                            onPress={() => router.push({ pathname: item.path } as any)}
-                        >
-                            <View style={styles.leftContent}>
-                                <MaterialIcons
-                                    name={item.icon}
-                                    size={24}
-                                    color="#8a9bb3"
-                                    style={styles.iconStyle}
-                                />
-                                <Text style={styles.rowText}>{item.title}</Text>
-                            </View>
+                        <Link key={item.id} href={item.path as any} asChild>
+                            <Pressable
+                                style={({ pressed }) => [
+                                    styles.row,
+                                    index !== serviceItems.length - 1 && styles.rowBorder,
+                                    pressed && styles.rowPressed
+                                ]}
+                            >
+                                <View style={styles.leftContent}>
+                                    <MaterialIcons
+                                        name={item.icon}
+                                        size={24}
+                                        color="#8a9bb3"
+                                        style={styles.iconStyle}
+                                    />
+                                    <Text style={styles.rowText}>
+                                        {t(`service.${item.id}`, item.title) as string}
+                                    </Text>
+                                </View>
 
-                            <View style={styles.rightContent}>
-                                <MaterialIcons name="chevron-right" size={24} color="#8a9bb3" />
-                            </View>
-                        </Pressable>
+                                <View style={styles.rightContent}>
+                                    <MaterialIcons name="chevron-right" size={24} color="#8a9bb3" />
+                                </View>
+                            </Pressable>
+                        </Link>
                     ))}
                 </LinearGradient>
             </View>
@@ -74,62 +78,15 @@ export default function ServiceCenterCard() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        marginBottom: 20,
-        gap: 14,
-    },
-    sectionTitle: {
-        color: '#f7f9ff',
-        fontSize: 14,
-        fontWeight: 'bold',
-        paddingLeft: 4,
-        marginBottom: 14,
-    },
-    cardWrapper: {
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        overflow: 'hidden',
-    },
-    cardGradient: {
-        width: '100%',
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 24,
-        paddingHorizontal: 22,
-        width: '100%',
-    },
-    rowBorder: {
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-    },
-    rowPressed: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    },
-    leftContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 10,
-        left: 10
-    },
-    iconStyle: {
-        marginRight: 16,
-    },
-    rowText: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: '#f7f9ff',
-        includeFontPadding: false,
-        textAlignVertical: 'center',
-    },
-    rightContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        top: -20,
-        right: 20
-    }
+    container: { marginBottom: 20, gap: 14 },
+    sectionTitle: { color: '#f7f9ff', fontSize: 14, fontWeight: 'bold', paddingLeft: 4, marginBottom: 14 },
+    cardWrapper: { borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' },
+    cardGradient: { width: '100%' },
+    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 24, paddingHorizontal: 22, width: '100%' },
+    rowBorder: { borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.08)' },
+    rowPressed: { backgroundColor: 'rgba(255, 255, 255, 0.05)' },
+    leftContent: { flexDirection: 'row', alignItems: 'center', marginTop: 10, left: 10 },
+    iconStyle: { marginRight: 16 },
+    rowText: { fontSize: 15, fontWeight: 'bold', color: '#f7f9ff', includeFontPadding: false, textAlignVertical: 'center' },
+    rightContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', top: -20, right: 20 }
 });

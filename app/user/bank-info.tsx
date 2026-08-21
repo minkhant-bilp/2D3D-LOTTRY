@@ -3,8 +3,12 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useTranslation } from 'react-i18next';
+
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from 'react-native-reanimated';
 
 import { createMyBankInfoAPI, getMyBankInfoAPI, updateMyBankInfoAPI } from '../../api/main';
 import { useAppStore } from '../../store/useAppStore';
@@ -26,13 +30,13 @@ const BANKS: BankEntry[] = [
 ];
 const CURRENCY_LABEL: Record<'MMK' | 'THB', string> = { MMK: 'Myanmar', THB: 'Thailand' };
 
-function bankInfoCooldownUntil(wallet: any): Date | null {
-    const nextAllowedAt = wallet?.bank_info_next_allowed_at;
+function bankInfoCooldownUntil(nextAllowedAt: string | null | undefined): Date | null {
     if (!nextAllowedAt) return null;
     const until = new Date(nextAllowedAt);
     if (Number.isNaN(until.getTime()) || until.getTime() <= Date.now()) return null;
     return until;
 }
+
 function formatCooldownDate(until: Date): string {
     return until.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
 }
@@ -40,10 +44,11 @@ function formatCooldownDate(until: Date): string {
 export default function BankInfoScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
 
-    const wallet = useAppStore((state: any) => state.wallet);
+    const nextAllowedAt = useAppStore((state: any) => state.wallet?.bank_info_next_allowed_at);
     const refreshWallet = useAppStore((state: any) => state.refreshWallet);
-    const cooldownUntil = bankInfoCooldownUntil(wallet);
+    const cooldownUntil = bankInfoCooldownUntil(nextAllowedAt);
 
     const [form, setForm] = useState({ bank_name: 'KBZ', account_name: '', account_number: '' });
     const [showConfirm, setShowConfirm] = useState(false);
@@ -51,17 +56,28 @@ export default function BankInfoScreen() {
     const [showBankList, setShowBankList] = useState(false);
     const [bankSearch, setBankSearch] = useState('');
 
-    const toastAnim = useRef(new Animated.Value(-150)).current;
+    const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        return () => {
+            if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+        };
+    }, []);
+
+    const toastTranslateY = useSharedValue(-150);
     const [toastData, setToastData] = useState({ msg: '', type: 'error' });
+
     const showToast = (msg: string, type: 'success' | 'error' = 'error') => {
         setToastData({ msg, type });
-        toastAnim.stopAnimation(); toastAnim.setValue(-150);
-        Animated.sequence([
-            Animated.timing(toastAnim, { toValue: Math.max(insets.top, 20) + 10, duration: 400, easing: Easing.out(Easing.back(1.5)), useNativeDriver: true }),
-            Animated.delay(2500),
-            Animated.timing(toastAnim, { toValue: -150, duration: 300, easing: Easing.in(Easing.ease), useNativeDriver: true })
-        ]).start();
+        toastTranslateY.value = -150;
+        toastTranslateY.value = withSequence(
+            withTiming(Math.max(insets.top, 20) + 10, { duration: 400 }),
+            withDelay(2500, withTiming(-150, { duration: 300 }))
+        );
     };
+
+    const toastAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: toastTranslateY.value }]
+    }));
 
     const { data: bankInfo, isLoading } = useQuery({
         queryKey: ['myBankInfo'],
@@ -76,15 +92,18 @@ export default function BankInfoScreen() {
         }
     });
 
+    const [isFormInitialized, setIsFormInitialized] = useState(false);
+
     useEffect(() => {
-        if (bankInfo) {
+        if (bankInfo && !isFormInitialized) {
             setForm({
                 bank_name: bankInfo.bank_name || 'KBZ',
                 account_name: bankInfo.account_name || bankInfo.account_holder_name || '',
                 account_number: bankInfo.account_number || '',
             });
+            setIsFormInitialized(true);
         }
-    }, [bankInfo]);
+    }, [bankInfo, isFormInitialized]);
 
     const mutation = useMutation({
         mutationFn: async (payload: typeof form) => {
@@ -92,13 +111,13 @@ export default function BankInfoScreen() {
             return await createMyBankInfoAPI(payload);
         },
         onSuccess: (data) => {
-            showToast(data?.message || 'Bank info saved successfully.', 'success');
+            showToast(data?.message || (t('bank_info.toast_success', 'Bank info saved successfully.') as string), 'success');
             refreshWallet();
             setShowConfirm(false);
         },
         onError: (error: any) => {
             const errorData = error?.response?.data;
-            const errMsg = errorData?.errors?.domain?.[0] || errorData?.message || 'Unable to save bank info. Please try again.';
+            const errMsg = errorData?.errors?.domain?.[0] || errorData?.message || (t('bank_info.toast_fail', 'Unable to save bank info. Please try again.') as string);
             showToast(errMsg, 'error');
             setShowConfirm(false);
         }
@@ -108,7 +127,7 @@ export default function BankInfoScreen() {
 
     const handleSubmit = () => {
         if (!form.bank_name || !form.account_name || !form.account_number) {
-            return showToast('Please fill in all fields.');
+            return showToast(t('bank_info.err_fill_all', 'Please fill in all fields.') as string);
         }
         if (bankInfo) {
             setShowConfirm(true);
@@ -128,8 +147,8 @@ export default function BankInfoScreen() {
                         <MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" />
                     </Pressable>
                     <View style={styles.headerTextContainer}>
-                        <Text style={styles.eyebrow}>WALLET</Text>
-                        <Text style={styles.title}>Bank Info</Text>
+                        <Text style={styles.eyebrow}>{t('bank_info.eyebrow', 'WALLET') as string}</Text>
+                        <Text style={styles.title}>{t('bank_info.title', 'Bank Info') as string}</Text>
                     </View>
                 </View>
 
@@ -142,18 +161,18 @@ export default function BankInfoScreen() {
                             <View style={styles.cardHeader}>
                                 <View style={styles.cardHeaderLeft}>
                                     <MaterialIcons name="account-balance" size={20} color="#93C5FD" />
-                                    <Text style={styles.cardTitle}>Bank account</Text>
+                                    <Text style={styles.cardTitle}>{t('bank_info.card_title', 'Bank account') as string}</Text>
                                 </View>
                                 {bankInfo && (
                                     <View style={styles.savedBadge}>
                                         <MaterialIcons name="check-circle" size={14} color="#00e676" />
-                                        <Text style={styles.savedText}>SAVED</Text>
+                                        <Text style={styles.savedText}>{t('bank_info.saved', 'SAVED') as string}</Text>
                                     </View>
                                 )}
                             </View>
 
                             <View style={styles.formGroup}>
-                                <Text style={styles.label}>BANK</Text>
+                                <Text style={styles.label}>{t('bank_info.label_bank', 'BANK') as string}</Text>
                                 <View style={[styles.dropdownInput, showBankList && { borderColor: 'rgba(59, 130, 246, 0.5)' }]}>
                                     {showBankList ? (
                                         <TextInput
@@ -161,9 +180,11 @@ export default function BankInfoScreen() {
                                             autoFocus
                                             value={bankSearch}
                                             onChangeText={setBankSearch}
-                                            placeholder="Search bank..."
+                                            placeholder={t('bank_info.search_placeholder', 'Search bank...') as string}
                                             placeholderTextColor="#4A5D7A"
-                                            onBlur={() => setTimeout(() => setShowBankList(false), 200)}
+                                            onBlur={() => {
+                                                blurTimeoutRef.current = setTimeout(() => setShowBankList(false), 200);
+                                            }}
                                         />
                                     ) : (
                                         <Pressable style={{ flex: 1 }} onPress={() => { setShowBankList(true); setBankSearch(''); }}>
@@ -200,38 +221,41 @@ export default function BankInfoScreen() {
                                                     </View>
                                                 );
                                             })}
-                                            {filteredBanks.length === 0 && <Text style={{ color: '#4A5D7A', padding: 16, textAlign: 'center' }}>No banks found</Text>}
+                                            {filteredBanks.length === 0 && <Text style={{ color: '#4A5D7A', padding: 16, textAlign: 'center' }}>{t('bank_info.no_banks_found', 'No banks found') as string}</Text>}
                                         </ScrollView>
                                     </View>
                                 )}
                             </View>
 
                             <View style={styles.formGroup}>
-                                <Text style={styles.label}>ACCOUNT NAME</Text>
+                                <Text style={styles.label}>{t('bank_info.label_account_name', 'ACCOUNT NAME') as string}</Text>
                                 <TextInput
                                     style={styles.textInput}
                                     value={form.account_name}
                                     onChangeText={(val) => setForm({ ...form, account_name: val })}
-                                    placeholder="e.g. Aung Ko Ko"
+                                    placeholder={t('bank_info.placeholder_account_name', 'e.g. Aung Ko Ko') as string}
                                     placeholderTextColor="#4A5D7A"
                                 />
                             </View>
 
                             <View style={styles.formGroup}>
-                                <Text style={styles.label}>ACCOUNT NUMBER</Text>
+                                <Text style={styles.label}>{t('bank_info.label_account_number', 'ACCOUNT NUMBER') as string}</Text>
                                 <TextInput
                                     style={styles.textInput}
                                     value={form.account_number}
                                     onChangeText={(val) => setForm({ ...form, account_number: val })}
                                     keyboardType="numeric"
-                                    placeholder="e.g. 09123456789"
+                                    placeholder={t('bank_info.placeholder_account_number', 'e.g. 09123456789') as string}
                                     placeholderTextColor="#4A5D7A"
                                 />
                             </View>
 
                             {cooldownUntil && (
                                 <View style={styles.cooldownBox}>
-                                    <Text style={styles.cooldownText}>Bank details can only be changed once every 30 days. You can update again on {formatCooldownDate(cooldownUntil)}.</Text>
+                                    <Text style={styles.cooldownText}>
+                                        {t('bank_info.cooldown_msg_1', 'Bank details can only be changed once every 30 days. You can update again on ') as string}
+                                        {formatCooldownDate(cooldownUntil)}.
+                                    </Text>
                                 </View>
                             )}
 
@@ -251,7 +275,9 @@ export default function BankInfoScreen() {
                                     ) : (
                                         <>
                                             <MaterialIcons name={bankInfo ? "save" : "add-circle"} size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                                            <Text style={styles.submitBtnText}>{bankInfo ? 'Update Bank Info' : 'Create Bank Info'}</Text>
+                                            <Text style={styles.submitBtnText}>
+                                                {bankInfo ? (t('bank_info.btn_update', 'Update Bank Info') as string) : (t('bank_info.btn_create', 'Create Bank Info') as string)}
+                                            </Text>
                                         </>
                                     )}
                                 </LinearGradient>
@@ -267,17 +293,17 @@ export default function BankInfoScreen() {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <MaterialIcons name="warning" size={24} color="#F59E0B" />
-                            <Text style={styles.modalTitle}>Update Bank Info?</Text>
+                            <Text style={styles.modalTitle}>{t('bank_info.modal_title', 'Update Bank Info?') as string}</Text>
                         </View>
-                        <Text style={styles.modalDesc}>Changing your bank details will lock further updates for 30 days. Withdrawals will be sent to the new account. Proceed?</Text>
+                        <Text style={styles.modalDesc}>{t('bank_info.modal_desc', 'Changing your bank details will lock further updates for 30 days. Withdrawals will be sent to the new account. Proceed?') as string}</Text>
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setShowConfirm(false)}>
-                                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+                                <Text style={styles.modalBtnCancelText}>{t('bank_info.modal_cancel', 'Cancel') as string}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.modalBtnConfirm} onPress={() => mutation.mutate(form)}>
                                 <LinearGradient colors={['#3B82F6', '#6366F1']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.modalBtnConfirmInner}>
-                                    {isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalBtnConfirmText}>Yes, Update</Text>}
+                                    {isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalBtnConfirmText}>{t('bank_info.modal_confirm', 'Yes, Update') as string}</Text>}
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>
@@ -285,7 +311,7 @@ export default function BankInfoScreen() {
                 </View>
             </Modal>
 
-            <Animated.View style={[styles.toastContainer, { transform: [{ translateY: toastAnim }], borderColor: toastData.type === 'success' ? '#10B981' : '#F87171' }]}>
+            <Animated.View style={[styles.toastContainer, toastAnimatedStyle, { borderColor: toastData.type === 'success' ? '#10B981' : '#F87171' }]}>
                 <MaterialIcons name={toastData.type === 'success' ? 'check-circle' : 'error'} size={20} color={toastData.type === 'success' ? '#10B981' : '#F87171'} />
                 <Text style={[styles.toastText, { color: toastData.type === 'success' ? '#34D399' : '#FCA5A5' }]}>{toastData.msg}</Text>
             </Animated.View>

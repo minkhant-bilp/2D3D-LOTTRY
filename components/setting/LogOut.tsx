@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Modal, Text, TouchableOpacity, View } from 'react-native';
 
 import { logoutAllFcmTokensAPI, logoutUserAPI } from '../../api/main';
@@ -8,6 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 
 export default function LogoutButton() {
     const router = useRouter();
+    const { t } = useTranslation();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
@@ -33,7 +35,7 @@ export default function LogoutButton() {
             router.replace('/login');
         } catch (error) {
             console.log("Logout Error: ", error);
-            Alert.alert("သတိပေးချက်", "အကောင့်ထွက်ခြင်း မအောင်မြင်ပါ။ အင်တာနက်ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်မံကြိုးစားပါ။");
+            Alert.alert(t('auth.logout_error_title') as string, t('auth.logout_error_msg') as string);
             setIsLoggingOut(false);
         }
     };
@@ -50,7 +52,7 @@ export default function LogoutButton() {
                     <ActivityIndicator size="small" color="#ff6a62" />
                 ) : (
                     <Text className="text-[16px] font-medium tracking-[0.5px] text-[#ff6a62]">
-                        ထွက်ခွာမည်
+                        {t('auth.logout_btn') as string}
                     </Text>
                 )}
             </TouchableOpacity>
@@ -63,8 +65,8 @@ export default function LogoutButton() {
             >
                 <View className="flex-1 items-center justify-center bg-[#040a1f]/60 p-5">
                     <View className="w-full max-w-[320px] rounded-[20px] border border-white/10 bg-[#0f1d38] p-5">
-                        <Text className="mb-2 text-[16px] font-bold text-[#f5f8ff]">အကောင့်ထွက်မည်</Text>
-                        <Text className="mb-5 text-[14px] text-[#a7b4cb]">သင့်အကောင့်မှ ထွက်ခွာမှာ သေချာပါသလား?</Text>
+                        <Text className="mb-2 text-[16px] font-bold text-[#f5f8ff]">{t('auth.logout_confirm_title') as string}</Text>
+                        <Text className="mb-5 text-[14px] text-[#a7b4cb]">{t('auth.logout_confirm_desc') as string}</Text>
 
                         <View className="flex-row justify-between">
                             <TouchableOpacity
@@ -73,7 +75,7 @@ export default function LogoutButton() {
                                 disabled={isLoggingOut}
                                 activeOpacity={0.7}
                             >
-                                <Text className="text-[14px] font-bold text-[#d5def0]">မလုပ်ပါ</Text>
+                                <Text className="text-[14px] font-bold text-[#d5def0]">{t('common.cancel') as string}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -85,7 +87,7 @@ export default function LogoutButton() {
                                 disabled={isLoggingOut}
                                 activeOpacity={0.7}
                             >
-                                <Text className="text-[14px] font-bold text-white">ထွက်မည်</Text>
+                                <Text className="text-[14px] font-bold text-white">{t('auth.logout_confirm_btn') as string}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

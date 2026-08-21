@@ -1,10 +1,25 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Animated,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useTranslation } from 'react-i18next';
 
 import { createBetAPI } from '../../api/main';
 import { useAppStore } from '../../store/useAppStore';
@@ -44,11 +59,9 @@ const FIXED_SETS: Partial<Record<BulkPick, string[]>> = { apu: DOUBLE_NUMS, powe
 function parsePastedBets(text: string, defaultAmount: string) {
     const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
     const results: { number: string; amount: string }[] = [];
-    const seen = new Set<string>();
 
     const add = (number: string, amount: string) => {
-        const key = `${number}|${amount}`;
-        if (!seen.has(key)) { seen.add(key); results.push({ number, amount }); }
+        results.push({ number, amount });
     };
 
     for (const line of lines) {
@@ -79,6 +92,37 @@ const TARGET_OPEN_TIME_LABELS: Record<string, string> = {
     '16:30:00': '4:30 PM',
 };
 
+// 🌟 Countdown Timer (MMT)
+function getRemainingTimeMMT(targetTimeStr: string): { totalSeconds: number, text: string, textFormatted: string } {
+    const now = new Date();
+    const mmtTime = new Date(now.getTime() + 390 * 60000); // UTC+6:30
+    const parts = targetTimeStr.split(':');
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+
+    let closeH = h;
+    let closeM = m - 30;
+    if (closeM < 0) {
+        closeM += 60;
+        closeH -= 1;
+    }
+
+    const targetDate = new Date(mmtTime);
+    targetDate.setUTCHours(closeH, closeM, 0, 0);
+
+    const diffSeconds = Math.floor((targetDate.getTime() - mmtTime.getTime()) / 1000);
+
+    if (diffSeconds <= 0) return { totalSeconds: 0, text: '00:00:00', textFormatted: '0H 0M 0S' };
+
+    const hours = Math.floor(diffSeconds / 3600);
+    const mins = Math.floor((diffSeconds % 3600) / 60);
+    const secs = diffSeconds % 60;
+
+    const text = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const textFormatted = `${hours}H ${mins}M ${secs}S`;
+    return { totalSeconds: diffSeconds, text, textFormatted };
+}
+
 function minutesOfDayMMT(): number {
     const d = new Date();
     const mmtTime = new Date(d.getTime() + 390 * 60000);
@@ -93,23 +137,64 @@ function isSessionExpired(openTime: string, currentMinutes: number): boolean {
     return currentMinutes >= closeTimeMMT;
 }
 
+const CountdownTimer = React.memo(({ targetTime }: { targetTime: string }) => {
+    const { t } = useTranslation();
+    const [timeLeft, setTimeLeft] = useState(() => getRemainingTimeMMT(targetTime));
+
+    useEffect(() => {
+        setTimeLeft(getRemainingTimeMMT(targetTime));
+        const timerId = setInterval(() => {
+            setTimeLeft(getRemainingTimeMMT(targetTime));
+        }, 1000);
+        return () => clearInterval(timerId);
+    }, [targetTime]);
+
+    return (
+        <View style={{ marginLeft: 12, flex: 1 }}>
+            <Text style={styles.timeBoxTitle}>{TARGET_OPEN_TIME_LABELS[targetTime]}</Text>
+            <Text style={styles.timeBoxSub}>
+                {t('twod_detail.closing_in', 'CLOSING IN') as string} {timeLeft.textFormatted}
+            </Text>
+        </View>
+    );
+});
+CountdownTimer.displayName = 'CountdownTimer';
+
 export default function TwoDDetailScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
 
-    const wallet = useAppStore((state: any) => state.wallet);
+    const walletBalance = useAppStore((state: any) => state.wallet?.balance);
+    const walletCurrency = useAppStore((state: any) => state.wallet?.currency);
     const refreshWallet = useAppStore((state: any) => state.refreshWallet);
+    const realWalletBalance = Number(walletBalance ?? 0);
+    const realCurrency = walletCurrency ?? 'MMK';
 
-    const realWalletBalance = Number(wallet?.balance ?? 0);
-    const realCurrency = wallet?.currency ?? 'MMK';
+    const step = useBetStore(state => state.step);
+    const setStep = useBetStore(state => state.setStep);
+    const pin = useBetStore(state => state.pin);
+    const setPin = useBetStore(state => state.setPin);
+    const betRows = useBetStore(state => state.betRows);
+    const getValidAmountTotal = useBetStore(state => state.getValidAmountTotal);
+    const addMultipleBets = useBetStore(state => state.addMultipleBets);
+    const removeBetRow = useBetStore(state => state.removeBetRow);
+    const clearBetRows = useBetStore(state => state.clearBetRows);
+    const updateBetRow = useBetStore(state => state.updateBetRow);
 
-    const { betRows, getValidAmountTotal, pin, setPin, addMultipleBets, removeBetRow, clearBetRows, step, setStep, updateBetRow } = useBetStore() as any;
-
-    const filledRows = betRows.filter((r: any) => r.number !== '');
+    const validBetCount = betRows.filter((r: any) => r.number.length === 2 && Number(r.amount) >= 1).length;
     const validTotal = getValidAmountTotal();
 
     const isInsufficient = validTotal > realWalletBalance;
     const balanceAfter = realWalletBalance - validTotal;
+
+    useFocusEffect(
+        useCallback(() => {
+            clearBetRows();
+            setStep(2);
+            setPin('');
+        }, [])
+    );
 
     const [currentMinutes, setCurrentMinutes] = useState(() => minutesOfDayMMT());
 
@@ -118,13 +203,7 @@ export default function TwoDDetailScreen() {
         return () => clearInterval(timer);
     }, []);
 
-    const availableTimes = useMemo(() => {
-        return TARGET_OPEN_TIME_OPTIONS
-            .filter(t => !isSessionExpired(t, currentMinutes))
-            .map(t => ({ value: t, label: TARGET_OPEN_TIME_LABELS[t] }));
-    }, [currentMinutes]);
-
-    const isAllClosed = availableTimes.length === 0;
+    const isAllClosed = TARGET_OPEN_TIME_OPTIONS.every(t => isSessionExpired(t, currentMinutes));
 
     const [targetTime, setTargetTime] = useState(() => {
         const mins = minutesOfDayMMT();
@@ -132,18 +211,30 @@ export default function TwoDDetailScreen() {
         return active || '16:30:00';
     });
 
+    useEffect(() => {
+        if (isSessionExpired(targetTime, currentMinutes)) {
+            const fallback = TARGET_OPEN_TIME_OPTIONS.find(t => !isSessionExpired(t, currentMinutes));
+            if (fallback) setTargetTime(fallback);
+        }
+    }, [currentMinutes, targetTime]);
+
     const [showTimeDropdown, setShowTimeDropdown] = useState(false);
 
-    useEffect(() => {
-        if (!isAllClosed && isSessionExpired(targetTime, currentMinutes)) {
-            setTargetTime(availableTimes[0].value);
-        }
-    }, [currentMinutes, isAllClosed, availableTimes, targetTime]);
+    const [toastMessage, setToastMessage] = useState('');
+    const toastOpacity = useRef(new Animated.Value(0)).current;
+
+    const [customAlert, setCustomAlert] = useState<{
+        visible: boolean;
+        type: 'success' | 'error' | 'warning';
+        title: string;
+        message: string;
+        onConfirm?: () => void;
+        showCancel?: boolean;
+    }>({ visible: false, type: 'error', title: '', message: '' });
 
     const [fastNum, setFastNum] = useState('');
     const [fastAmt, setFastAmt] = useState('');
     const [fastError, setFastError] = useState<string | null>(null);
-    const [skippedCount, setSkippedCount] = useState(0);
 
     const [pasteText, setPasteText] = useState('');
     const [pasteAmt, setPasteAmt] = useState('500');
@@ -156,106 +247,132 @@ export default function TwoDDetailScreen() {
     const [modalDigit, setModalDigit] = useState('');
     const [modalError, setModalError] = useState<string | null>(null);
 
+    const showToast = (message: string) => {
+        setToastMessage(message);
+        toastOpacity.setValue(1);
+        Animated.sequence([
+            Animated.delay(2000),
+            Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true })
+        ]).start();
+    };
+
+    const showAlert = (type: 'success' | 'error' | 'warning', title: string, message: string, onConfirm?: () => void, showCancel = false) => {
+        setCustomAlert({ visible: true, type, title, message, onConfirm, showCancel });
+    };
+
     const handleBack = () => {
         if (step === 3) {
             setStep(2);
         } else {
-            router.back();
+            if (betRows.filter((r: any) => r.number !== '').length > 0) {
+                showAlert(
+                    'warning',
+                    t('twod_detail.alert_warning', 'သတိပေးချက်') as string,
+                    t('twod_detail.alert_clear_warning', 'သင်ရွေးချယ်ထားသော ဂဏန်းများအားလုံး ပျက်သွားပါမည်။ ထွက်မှာ သေချာပြီလား?') as string,
+                    () => {
+                        clearBetRows();
+                        router.back();
+                    },
+                    true
+                );
+            } else {
+                router.back();
+            }
         }
     };
 
     const handleStake = (numbers: string[], amount: string) => {
-        const existing = new Set(filledRows.map((r: any) => r.number));
-        const newBets: { number: string; amount: string }[] = [];
-        let skips = 0;
-
-        numbers.forEach(n => {
-            if (existing.has(n)) skips++;
-            else newBets.push({ number: n, amount });
-        });
-
-        if (newBets.length > 0) addMultipleBets(newBets);
-        setSkippedCount(skips);
+        const newBets = numbers.map(n => ({ number: n, amount }));
+        if (newBets.length > 0) {
+            addMultipleBets(newBets);
+            showToast(t('twod_detail.toast_added', 'စာရင်း ထည့်သွင်းပြီးပါပြီ') as string);
+        }
         return newBets.length;
     };
 
     const runQuickPick = (key: string, label: string) => {
-        setFastError(null); setSkippedCount(0);
+        setFastError(null);
         if (key !== 'direct' && key !== 'reverse') {
             setBulkPick({ key: key as BulkPick, label });
             setModalAmt(fastAmt); setModalDigits([]); setModalDigit(''); setModalIncludeDbl(false); setModalError(null);
             return;
         }
 
-        if (!fastAmt || parseInt(fastAmt) < 1) return setFastError('ကျေးဇူးပြု၍ လောင်းကြေးငွေပမာဏကို မှန်ကန်စွာ ထည့်ပါ။');
-        if (fastNum.length !== 2) return setFastError('ဒဲ့ နှင့် R အတွက် ဂဏန်း (၂) လုံး အတိအကျ ထည့်ပါ။');
+        if (!fastAmt || parseInt(fastAmt) < 1) return setFastError(t('twod_detail.err_invalid_amt', 'ကျေးဇူးပြု၍ လောင်းကြေးငွေပမာဏကို မှန်ကန်စွာ ထည့်ပါ။') as string);
+        if (fastNum.length !== 2) return setFastError(t('twod_detail.err_exact_two', 'ဒဲ့ နှင့် R အတွက် ဂဏန်း (၂) လုံး အတိအကျ ထည့်ပါ။') as string);
 
         const rev = reverseNum(fastNum);
         const nums = key === 'reverse' && rev !== fastNum ? [fastNum, rev] : [fastNum];
-        if (handleStake(nums, fastAmt) === 0) setFastError(`ဂဏန်း ${nums.length} လုံး စလုံးမှာ ထည့်သွင်းပြီးသား ဖြစ်နေပါသည်။`);
+
+        handleStake(nums, fastAmt);
         setFastNum('');
     };
 
     const runPaste = () => {
-        setPasteError(null); setSkippedCount(0);
-        if (!pasteAmt || parseInt(pasteAmt) < 1) return setPasteError('ကျေးဇူးပြု၍ Default Amount ထည့်ပါ။');
+        setPasteError(null);
+        if (!pasteAmt || parseInt(pasteAmt) < 1) return setPasteError(t('twod_detail.err_paste_amt', 'ကျေးဇူးပြု၍ Default Amount ထည့်ပါ။') as string);
 
         const parsed = parsePastedBets(pasteText, pasteAmt);
-        if (parsed.length === 0) return setPasteError('သင့်စာသားထဲတွင် ဂဏန်းများ ရှာမတွေ့ပါ။');
+        if (parsed.length === 0) return setPasteError(t('twod_detail.err_paste_not_found', 'သင့်စာသားထဲတွင် ဂဏန်းများ ရှာမတွေ့ပါ။') as string);
 
-        const existing = new Set(filledRows.map((r: any) => r.number));
-        const newBets = parsed.filter(b => !existing.has(b.number));
-
-        if (newBets.length === 0) return setPasteError(`ဂဏန်း ${parsed.length} လုံး စလုံးမှာ ထည့်သွင်းပြီးသား ဖြစ်နေပါသည်။`);
-
-        addMultipleBets(newBets);
-        setSkippedCount(parsed.length - newBets.length);
+        addMultipleBets(parsed);
+        showToast(t('twod_detail.toast_added', 'စာရင်း ထည့်သွင်းပြီးပါပြီ') as string);
         setPasteText('');
     };
 
-    const modalNumbers = useMemo(() => {
+    const modalNumbers = (() => {
         if (!bulkPick) return [];
         const mode = BULK_MODES[bulkPick.key];
         if (mode === 'fixed') return FIXED_SETS[bulkPick.key] ?? [];
         if (mode === 'digits') return getKhwayNumbers(modalDigits, modalIncludeDbl);
         return /^\d$/.test(modalDigit) ? generateInclude(modalDigit) : [];
-    }, [bulkPick, modalDigits, modalIncludeDbl, modalDigit]);
+    })();
 
     const confirmModal = () => {
         const mode = bulkPick ? BULK_MODES[bulkPick.key] : null;
-        if (mode === 'digits' && modalDigits.length < 2) return setModalError('ခွေရန်အတွက် အနည်းဆုံး ဂဏန်း ၂ လုံး ရွေးပါ။');
-        if (mode === 'digit' && !/^\d$/.test(modalDigit)) return setModalError('ကျေးဇူးပြု၍ ဂဏန်း ၁ လုံး အတိအကျ ထည့်ပါ။');
-        if (!modalAmt || parseInt(modalAmt) < 1) return setModalError('လောင်းကြေးငွေပမာဏကို မှန်ကန်စွာ ထည့်ပါ။');
+        if (mode === 'digits' && modalDigits.length < 2) return setModalError(t('twod_detail.err_min_two_khway', 'ခွေရန်အတွက် အနည်းဆုံး ဂဏန်း ၂ လုံး ရွေးပါ။') as string);
+        if (mode === 'digit' && !/^\d$/.test(modalDigit)) return setModalError(t('twod_detail.err_exact_one', 'ကျေးဇူးပြု၍ ဂဏန်း ၁ လုံး အတိအကျ ထည့်ပါ။') as string);
+        if (!modalAmt || parseInt(modalAmt) < 1) return setModalError(t('twod_detail.err_invalid_amt_modal', 'လောင်းကြေးငွေပမာဏကို မှန်ကန်စွာ ထည့်ပါ။') as string);
 
-        if (handleStake(modalNumbers, modalAmt) === 0) {
-            setModalError(`ဂဏန်း ${modalNumbers.length} လုံး စလုံးမှာ ထည့်သွင်းပြီးသား ဖြစ်နေပါသည်။`);
-            return;
-        }
+        handleStake(modalNumbers, modalAmt);
         setBulkPick(null); setFastNum('');
     };
 
     const mutation = useMutation({
         mutationFn: createBetAPI,
         onSuccess: () => {
-            Alert.alert('အောင်မြင်ပါသည်', 'လောင်းကြေး အောင်မြင်စွာ တင်သွင်းပြီးပါပြီ။');
-            clearBetRows(); setPin(''); refreshWallet();
-            router.push('/results/twoDresult');
+            showAlert('success', t('twod_detail.alert_success', 'အောင်မြင်ပါသည်') as string, t('twod_detail.alert_success_msg', 'လောင်းကြေး အောင်မြင်စွာ တင်သွင်းပြီးပါပြီ။') as string, () => {
+                clearBetRows();
+                setPin('');
+                refreshWallet();
+                router.push('/results/twoDresult');
+            });
         },
         onError: (err: any) => {
-            Alert.alert('အမှား', err?.response?.data?.message || 'လောင်းကြေးတင်ခြင်း မအောင်မြင်ပါ။');
+            showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, err?.response?.data?.message || t('twod_detail.alert_fail_msg', 'လောင်းကြေးတင်ခြင်း မအောင်မြင်ပါ။') as string);
         }
     });
 
     const submitBet = () => {
-        if (isInsufficient) return Alert.alert('အမှား', 'လက်ကျန်ငွေ မလုံလောက်ပါ။');
-        if (pin.length !== 6) return Alert.alert('အမှား', 'PIN ၆ လုံး ထည့်ပါ။');
-        if (filledRows.length === 0) return Alert.alert('အမှား', 'ဂဏန်း အနည်းဆုံး ၁ ခု ထည့်ပါ။');
+        if (isInsufficient) return showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, t('twod_detail.alert_insufficient', 'လက်ကျန်ငွေ မလုံလောက်ပါ။') as string);
+        if (pin.length !== 6) return showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, t('twod_detail.alert_exact_six_pin', 'PIN ဂဏန်း (၆) လုံး အတိအကျ ထည့်ပါ။') as string);
+        if (validBetCount === 0) return showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, t('twod_detail.alert_min_one_num', 'ဂဏန်း အနည်းဆုံး ၁ ခု ထည့်ပါ။') as string);
+
+        const cleanRows = betRows.filter((r: any) => r.number.length === 2 && Number(r.amount) >= 1);
+
+        const mergedMap: Record<string, number> = {};
+        cleanRows.forEach((r: any) => {
+            const num = r.number;
+            const amt = parseInt(r.amount) || 0;
+            mergedMap[num] = (mergedMap[num] || 0) + amt;
+        });
+        const mergedBetNumbers = Object.entries(mergedMap).map(([number, amount]) => ({ number, amount }));
 
         mutation.mutate({
             bet_type: '2D',
             currency: realCurrency,
             target_opentime: targetTime,
-            bet_numbers: filledRows.map((r: any) => ({ number: r.number, amount: parseInt(r.amount) })),
+            bet_numbers: mergedBetNumbers,
             security_pin: pin
         });
     };
@@ -264,19 +381,19 @@ export default function TwoDDetailScreen() {
         <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
                 <Pressable onPress={handleBack} style={styles.backBtn}><MaterialIcons name="arrow-back-ios" size={20} color="#9CA3AF" /></Pressable>
-                <Text style={styles.headerTitle}>2D FLASH MODE</Text>
+                <Text style={styles.headerTitle}>{t('twod_detail.header_title', '2D FLASH MODE') as string}</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
                 <View style={styles.titleRow}>
                     <View>
-                        <Text style={styles.mainTitle}>လောင်းကြေး ထားမည်</Text>
-                        <Text style={styles.subTitle}>Two-digit quick rounds</Text>
+                        <Text style={styles.mainTitle}>{t('twod_detail.main_title', 'လောင်းကြေး ထားမည်') as string}</Text>
+                        <Text style={styles.subTitle}>{t('twod_detail.sub_title', 'Two-digit quick rounds') as string}</Text>
                     </View>
                     <View style={styles.pillOuter}>
                         <View style={styles.pillInner}>
-                            <Text style={styles.pillText}>2D ဈေးကွက်</Text>
+                            <Text style={styles.pillText}>{t('twod_detail.market_pill', '2D ဈေးကွက်') as string}</Text>
                         </View>
                     </View>
                 </View>
@@ -284,47 +401,55 @@ export default function TwoDDetailScreen() {
                 {step === 2 && (
                     <>
                         <View style={[styles.section, { zIndex: 10 }]}>
-                            <Text style={styles.label}>TARGET OPEN TIME</Text>
+                            <Text style={styles.label}>{t('twod_detail.open_time', 'ပွဲစဉ် ရွေးချယ်ရန် (OPEN TIME)') as string}</Text>
 
                             {isAllClosed ? (
                                 <View style={styles.lockedBox}>
                                     <MaterialIcons name="lock" size={24} color="#F87171" />
                                     <View style={{ marginLeft: 12 }}>
-                                        <Text style={styles.lockedTitle}>ဒီနေ့အတွက် ပွဲပိတ်သွားပါပြီ</Text>
-                                        <Text style={styles.lockedSub}>မနက်ဖြန် 12:01 PM တွင် ပြန်လည်စတင်ပါမည်</Text>
+                                        <Text style={styles.lockedTitle}>{t('twod_detail.closed_title', 'ဒီနေ့အတွက် ပွဲပိတ်သွားပါပြီ') as string}</Text>
+                                        <Text style={styles.lockedSub}>{t('twod_detail.closed_sub', 'မနက်ဖြန် 12:01 PM တွင် ပြန်လည်စတင်ပါမည်') as string}</Text>
                                     </View>
                                 </View>
                             ) : (
-                                <Pressable
-                                    style={[styles.timeBox, showTimeDropdown && { borderColor: 'rgba(59, 130, 246, 0.5)' }]}
-                                    onPress={() => setShowTimeDropdown(!showTimeDropdown)}
-                                >
-                                    <MaterialIcons name="access-time" size={20} color="#10B981" />
-                                    <View style={{ marginLeft: 12, flex: 1 }}>
-                                        <Text style={styles.timeBoxTitle}>{TARGET_OPEN_TIME_LABELS[targetTime]}</Text>
-                                        <Text style={styles.timeBoxSub}>SELECT TIME ({availableTimes.map(t => t.label).join(' OR ')})</Text>
-                                    </View>
-                                    {availableTimes.length > 1 && (
-                                        <MaterialIcons name={showTimeDropdown ? "expand-less" : "expand-more"} size={22} color="#9CA3AF" />
-                                    )}
-                                </Pressable>
-                            )}
+                                <View style={{ position: 'relative' }}>
+                                    <Pressable
+                                        style={[styles.timeBox, showTimeDropdown && { borderColor: 'rgba(59, 130, 246, 0.5)' }]}
+                                        onPress={() => setShowTimeDropdown(!showTimeDropdown)}
+                                    >
+                                        <MaterialIcons name="access-time" size={20} color="#10B981" />
 
-                            {showTimeDropdown && availableTimes.length > 1 && !isAllClosed && (
-                                <View style={styles.timeDropdownContainer}>
-                                    {availableTimes.map(t => {
-                                        const isActive = targetTime === t.value;
-                                        return (
-                                            <Pressable
-                                                key={t.value}
-                                                style={[styles.timeDropdownItem, isActive && styles.timeDropdownItemActive]}
-                                                onPress={() => { setTargetTime(t.value); setShowTimeDropdown(false); }}
-                                            >
-                                                <Text style={[styles.timeDropdownText, isActive && { color: '#10B981' }]}>{t.label}</Text>
-                                                {isActive && <MaterialIcons name="check" size={18} color="#10B981" />}
-                                            </Pressable>
-                                        )
-                                    })}
+                                        <CountdownTimer targetTime={targetTime} />
+
+                                        <MaterialIcons name={showTimeDropdown ? "expand-less" : "expand-more"} size={22} color="#9CA3AF" />
+                                    </Pressable>
+
+                                    {showTimeDropdown && (
+                                        <View style={styles.timeDropdownContainer}>
+                                            {TARGET_OPEN_TIME_OPTIONS.map(timeVal => {
+                                                const isClosed = isSessionExpired(timeVal, currentMinutes);
+                                                const isActive = targetTime === timeVal;
+                                                return (
+                                                    <Pressable
+                                                        key={timeVal}
+                                                        style={[
+                                                            styles.timeDropdownItem,
+                                                            isActive && styles.timeDropdownItemActive,
+                                                            isClosed && { opacity: 0.5 }
+                                                        ]}
+                                                        disabled={isClosed}
+                                                        onPress={() => { setTargetTime(timeVal); setShowTimeDropdown(false); }}
+                                                    >
+                                                        <Text style={[styles.timeDropdownText, isActive && { color: '#10B981' }]}>
+                                                            {TARGET_OPEN_TIME_LABELS[timeVal]}
+                                                            {isClosed ? (t('twod_detail.closed_suffix', ' (ပိတ်သွားပါပြီ)') as string) : ''}
+                                                        </Text>
+                                                        {isActive && <MaterialIcons name="check" size={18} color="#10B981" />}
+                                                    </Pressable>
+                                                )
+                                            })}
+                                        </View>
+                                    )}
                                 </View>
                             )}
                         </View>
@@ -332,42 +457,49 @@ export default function TwoDDetailScreen() {
                         <View style={styles.fastCard}>
                             <View style={styles.cardTitleRow}>
                                 <MaterialIcons name="bolt" size={20} color="#FBBF24" />
-                                <Text style={styles.fastTitle}>အမြန်ရွေးချယ်မှု (FAST ENTRY)</Text>
+                                <Text style={styles.fastTitle}>{t('twod_detail.fast_entry', 'အမြန်ရွေးချယ်မှု (FAST ENTRY)') as string}</Text>
                             </View>
 
                             <View style={styles.inputRow}>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.label}>ဂဏန်း (00-99)</Text>
+                                    <Text style={styles.label}>{t('twod_detail.number_label', 'ဂဏန်း (00-99)') as string}</Text>
                                     <TextInput style={styles.input} keyboardType="number-pad" maxLength={2} placeholder="23" placeholderTextColor="rgba(255,255,255,0.3)" value={fastNum} onChangeText={setFastNum} editable={!isAllClosed} />
                                 </View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.label}>ငွေပမာဏ (MMK)</Text>
+                                    <Text style={styles.label}>{t('twod_detail.amount_mmk', 'ငွေပမာဏ (MMK)') as string}</Text>
                                     <TextInput style={styles.input} keyboardType="number-pad" placeholder="1000" placeholderTextColor="rgba(255,255,255,0.3)" value={fastAmt} onChangeText={setFastAmt} editable={!isAllClosed} />
                                 </View>
                             </View>
 
                             <View style={styles.grid4}>
-                                {[{ k: 'direct', l: 'ဒဲ့' }, { k: 'reverse', l: 'R' }, { k: 'apu', l: 'အပူး' }, { k: 'khway', l: 'ခွေ' },
-                                { k: 'a-par', l: 'အပါ' }, { k: 'power', l: 'ပါဝါ' }, { k: 'nakkhat', l: 'နက္ခတ်' }, { k: 'brother', l: 'ညီအစ်ကို' }].map(p => (
+                                {[
+                                    { k: 'direct', l: t('twod_detail.quick_direct', 'ဒဲ့') as string },
+                                    { k: 'reverse', l: t('twod_detail.quick_r', 'R') as string },
+                                    { k: 'apu', l: t('twod_detail.quick_apu', 'အပူး') as string },
+                                    { k: 'khway', l: t('twod_detail.quick_khway', 'ခွေ') as string },
+                                    { k: 'a-par', l: t('twod_detail.quick_apar', 'အပါ') as string },
+                                    { k: 'power', l: t('twod_detail.quick_power', 'ပါဝါ') as string },
+                                    { k: 'nakkhat', l: t('twod_detail.quick_nakkhat', 'နက္ခတ်') as string },
+                                    { k: 'brother', l: t('twod_detail.quick_brother', 'ညီအစ်ကို') as string }
+                                ].map(p => (
                                     <TouchableOpacity key={p.k} style={styles.quickPickBtn} onPress={() => !isAllClosed && runQuickPick(p.k, p.l)}>
                                         <Text style={styles.quickPickText}>{p.l}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
 
-                            <Text style={styles.hintText}>ဒဲ့ နှင့် R အတွက် ဂဏန်း (၂) လုံး ထည့်ပြီး တိုက်ရိုက် ထည့်သွင်းပါ။ ကျန်သည်များကို အရင် ကြည့်ရှုနိုင်ပါသည်။</Text>
+                            <Text style={styles.hintText}>{t('twod_detail.fast_hint', 'ဒဲ့ နှင့် R အတွက် ဂဏန်း (၂) လုံး ထည့်ပြီး တိုက်ရိုက် ထည့်သွင်းပါ။ ကျန်သည်များကို အရင် ကြည့်ရှုနိုင်ပါသည်။') as string}</Text>
                             {fastError && <Text style={styles.errorText}>{fastError}</Text>}
-                            {skippedCount > 0 && <View style={styles.skipNotice}><Text style={styles.skipText}>ဂဏန်း {skippedCount} လုံးမှာ ထပ်နေသဖြင့် ပယ်ဖျက်လိုက်ပါသည်။</Text></View>}
                         </View>
 
                         <View style={styles.pasteCard}>
                             <View style={styles.cardTitleRow}>
                                 <MaterialIcons name="content-paste" size={18} color="#3B82F6" />
-                                <Text style={styles.pasteTitle}>ဂဏန်းများ COPY / PASTE လုပ်ရန်</Text>
+                                <Text style={styles.pasteTitle}>{t('twod_detail.paste_title', 'ဂဏန်းများ COPY / PASTE လုပ်ရန်') as string}</Text>
                             </View>
-                            <Text style={styles.hintText}>အောက်တွင် ငွေပမာဏ သတ်မှတ်ပြီး၊ ဂဏန်းများ Paste ချပါ။</Text>
+                            <Text style={styles.hintText}>{t('twod_detail.paste_instruction', 'အောက်တွင် ငွေပမာဏ သတ်မှတ်ပြီး၊ ဂဏန်းများ Paste ချပါ။') as string}</Text>
 
-                            <Text style={styles.label}>DEFAULT AMOUNT</Text>
+                            <Text style={styles.label}>{t('twod_detail.default_amount', 'DEFAULT AMOUNT') as string}</Text>
                             <TextInput style={[styles.input, { marginBottom: 12 }]} keyboardType="number-pad" placeholder="500" placeholderTextColor="rgba(255,255,255,0.3)" value={pasteAmt} onChangeText={setPasteAmt} editable={!isAllClosed} />
 
                             <TextInput style={styles.textarea} multiline textAlignVertical="top" placeholder={"12.24.56 = 500\n12.25 = r600\n1ပါ 500"} placeholderTextColor="rgba(255,255,255,0.3)" value={pasteText} onChangeText={setPasteText} editable={!isAllClosed} />
@@ -376,20 +508,21 @@ export default function TwoDDetailScreen() {
 
                             <TouchableOpacity style={[styles.pasteBtn, isAllClosed && { opacity: 0.5 }]} disabled={isAllClosed} onPress={runPaste}>
                                 <MaterialIcons name="add-task" size={18} color="#FFF" style={{ marginRight: 8 }} />
-                                <Text style={styles.pasteBtnText}>စာရင်းထဲသို့ ထည့်သွင်းမည်</Text>
+                                <Text style={styles.pasteBtnText}>{t('twod_detail.paste_btn', 'စာရင်းထဲသို့ ထည့်သွင်းမည်') as string}</Text>
                             </TouchableOpacity>
                         </View>
 
                         <View style={styles.summaryCardOuter}>
                             <View style={styles.summaryCardInner}>
                                 <View style={styles.summaryHeader}>
-                                    <Text style={styles.summaryTitle}>ထီဂဏန်းများ</Text>
+                                    <Text style={styles.summaryTitle}>{t('twod_detail.lottery_numbers', 'ထီဂဏန်းများ') as string}</Text>
                                     <View style={styles.summaryChips}>
-                                        {filledRows.map((row: any) => {
+                                        {betRows.map((row: any, index: number) => {
+                                            if (!row.number) return null;
                                             const amt = Number(row.amount);
                                             const isValid = /^\d+$/.test(row.amount.trim()) && Number.isInteger(amt) && amt >= 1;
                                             return (
-                                                <View key={row.id} style={[styles.chip, isValid ? styles.chipValid : styles.chipInvalid]}>
+                                                <View key={`${row.id}-${index}`} style={[styles.chip, isValid ? styles.chipValid : styles.chipInvalid]}>
                                                     <Text style={[styles.chipText, isValid ? styles.chipTextValid : styles.chipTextInvalid]}>
                                                         {row.number}
                                                         {row.amount !== '' && <Text style={styles.chipAmountText}> · {row.amount}</Text>}
@@ -402,23 +535,23 @@ export default function TwoDDetailScreen() {
                             </View>
                         </View>
 
-                        {betRows.map((row: any) => (
-                            <View key={row.id} style={styles.rowCardOuter}>
+                        {betRows.map((row: any, index: number) => (
+                            <View key={`${row.id}-${index}`} style={styles.rowCardOuter}>
                                 <View style={styles.rowCardInner}>
                                     <View style={styles.rowCardHeader}>
                                         <View>
-                                            <Text style={styles.potentialWinLabel}>POTENTIAL WIN</Text>
+                                            <Text style={styles.potentialWinLabel}>{t('twod_detail.potential_win', 'POTENTIAL WIN') as string}</Text>
                                             <Text style={styles.potentialWinValue}>
-                                                {row.amount ? `x ${(Number(row.amount) * 80).toLocaleString()}` : '—'}
+                                                {row.amount && row.number.length === 2 ? `x ${(Number(row.amount) * 80).toLocaleString()}` : '—'}
                                             </Text>
                                         </View>
                                         <Pressable style={styles.closeBtnOuter} onPress={() => removeBetRow(row.id)}>
                                             <View style={styles.closeBtnInner}><MaterialIcons name="close" size={18} color="#9CA3AF" /></View>
                                         </Pressable>
                                     </View>
-                                    <Text style={styles.label}>ဂဏန်း (00-99)</Text>
+                                    <Text style={styles.label}>{t('twod_detail.number_label', 'ဂဏန်း (00-99)') as string}</Text>
                                     <TextInput style={styles.input} keyboardType="number-pad" maxLength={2} value={row.number} onChangeText={(val) => updateBetRow(row.id, 'number', val)} editable={!isAllClosed} />
-                                    <Text style={[styles.label, { marginTop: 12 }]}>ငွေပမာဏ</Text>
+                                    <Text style={[styles.label, { marginTop: 12 }]}>{t('twod_detail.amount_label', 'ငွေပမာဏ') as string}</Text>
                                     <TextInput style={styles.input} keyboardType="number-pad" value={row.amount} onChangeText={(val) => updateBetRow(row.id, 'amount', val)} editable={!isAllClosed} />
                                 </View>
                             </View>
@@ -428,14 +561,14 @@ export default function TwoDDetailScreen() {
                             <Pressable style={styles.clearBtnOuter} onPress={clearBetRows}>
                                 <View style={styles.clearBtnInner}>
                                     <MaterialIcons name="delete-outline" size={18} color="#F87171" />
-                                    <Text style={styles.clearBtnText}>အားလုံး ရှင်းမည်</Text>
+                                    <Text style={styles.clearBtnText}>{t('twod_detail.clear_all', 'အားလုံး ရှင်းမည်') as string}</Text>
                                 </View>
                             </Pressable>
                         </View>
 
-                        <TouchableOpacity activeOpacity={0.8} style={[styles.nextBtnOuter, (filledRows.length === 0 || isAllClosed) && { opacity: 0.5 }]} disabled={filledRows.length === 0 || isAllClosed} onPress={() => setStep(3)}>
+                        <TouchableOpacity activeOpacity={0.8} style={[styles.nextBtnOuter, (validBetCount === 0 || isAllClosed) && { opacity: 0.4 }]} disabled={validBetCount === 0 || isAllClosed} onPress={() => setStep(3)}>
                             <LinearGradient colors={['#34D399', '#10B981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.nextBtnInner}>
-                                <Text style={styles.nextBtnText}>ရှေ့သို့</Text>
+                                <Text style={styles.nextBtnText}>{t('twod_detail.btn_next', 'ရှေ့သို့') as string}</Text>
                                 <View style={styles.nextIconWrapper}><MaterialIcons name="arrow-forward" size={20} color="#042F21" /></View>
                             </LinearGradient>
                         </TouchableOpacity>
@@ -446,13 +579,14 @@ export default function TwoDDetailScreen() {
                     <>
                         <View style={styles.summaryCardOuter}>
                             <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
-                                <Text style={styles.summaryTitle}>BET SUMMARY</Text>
+                                <Text style={styles.summaryTitle}>{t('twod_detail.bet_summary', 'BET SUMMARY') as string}</Text>
                                 <View style={[styles.summaryChips, { marginVertical: 16 }]}>
-                                    {filledRows.map((row: any) => {
+                                    {betRows.map((row: any, index: number) => {
+                                        if (!row.number) return null;
                                         const amt = Number(row.amount);
                                         const isValid = /^\d+$/.test(row.amount.trim()) && Number.isInteger(amt) && amt >= 1;
                                         return (
-                                            <View key={row.id} style={[styles.chip, isValid ? styles.chipValid : styles.chipInvalid]}>
+                                            <View key={`${row.id}-${index}`} style={[styles.chip, isValid ? styles.chipValid : styles.chipInvalid]}>
                                                 <Text style={[styles.chipText, isValid ? styles.chipTextValid : styles.chipTextInvalid]}>
                                                     {row.number}
                                                     {row.amount !== '' && <Text style={styles.chipAmountText}> · {row.amount}</Text>}
@@ -463,7 +597,7 @@ export default function TwoDDetailScreen() {
                                 </View>
                                 <View style={styles.divider} />
                                 <View style={styles.rowBetween}>
-                                    <Text style={styles.rowLabel}>Total</Text>
+                                    <Text style={styles.rowLabel}>{t('twod_detail.total', 'Total') as string}</Text>
                                     <Text style={styles.rowValueWhite}>{validTotal.toLocaleString()} {realCurrency}</Text>
                                 </View>
                             </View>
@@ -472,13 +606,13 @@ export default function TwoDDetailScreen() {
                         <View style={styles.summaryCardOuter}>
                             <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
                                 <View style={[styles.rowBetween, { marginBottom: 12 }]}>
-                                    <Text style={styles.rowLabel}>Balance</Text>
+                                    <Text style={styles.rowLabel}>{t('twod_detail.balance', 'လက်ကျန်ငွေ') as string}</Text>
                                     <Text style={styles.rowValueWhite}>{realWalletBalance.toLocaleString()} {realCurrency}</Text>
                                 </View>
                                 <View style={styles.rowBetween}>
-                                    <Text style={styles.rowLabel}>After this bet</Text>
+                                    <Text style={styles.rowLabel}>{t('twod_detail.after_bet', 'ထိုးပြီးပါက ကျန်မည့်ငွေ') as string}</Text>
                                     <Text style={[styles.rowValueColored, isInsufficient ? { color: '#F87171' } : { color: '#10B981' }]}>
-                                        {isInsufficient ? 'Insufficient' : `${balanceAfter.toLocaleString()} ${realCurrency}`}
+                                        {isInsufficient ? (t('twod_detail.insufficient_short', 'လက်ကျန်ငွေ မလုံလောက်ပါ') as string) : `${balanceAfter.toLocaleString()} ${realCurrency}`}
                                     </Text>
                                 </View>
                             </View>
@@ -486,8 +620,8 @@ export default function TwoDDetailScreen() {
 
                         <View style={styles.summaryCardOuter}>
                             <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
-                                <Text style={[styles.summaryTitle, { marginBottom: 16 }]}>SECURITY PIN</Text>
-                                <TextInput style={styles.pinInput} keyboardType="number-pad" secureTextEntry maxLength={6} placeholder="Enter 6-digit PIN" placeholderTextColor="rgba(255,255,255,0.3)" value={pin} onChangeText={(val) => setPin(val.replace(/\D/g, '').slice(0, 6))} />
+                                <Text style={[styles.summaryTitle, { marginBottom: 16 }]}>{t('twod_detail.security_pin', 'SECURITY PIN') as string}</Text>
+                                <TextInput style={styles.pinInput} keyboardType="number-pad" secureTextEntry maxLength={6} placeholder={t('twod_detail.pin_placeholder', 'ဂဏန်း ၆ လုံး ထည့်ပါ') as string} placeholderTextColor="rgba(255,255,255,0.3)" value={pin} onChangeText={(val) => setPin(val.replace(/\D/g, '').slice(0, 6))} />
                             </View>
                         </View>
 
@@ -497,24 +631,24 @@ export default function TwoDDetailScreen() {
                                 style={styles.topUpBtn}
                                 onPress={() => router.push('/wallet-profile/deposit')}
                             >
-                                <Text style={styles.topUpBtnText}>→ Top up wallet</Text>
+                                <Text style={styles.topUpBtnText}>{t('twod_detail.top_up', '→ Top up wallet') as string}</Text>
                             </TouchableOpacity>
                         )}
 
                         <View style={styles.actionsCardOuter}>
                             <View style={styles.actionsCardInner}>
                                 <View style={[styles.rowBetween, { marginBottom: 16 }]}>
-                                    <Text style={styles.rowLabel}>Estimated Total</Text>
+                                    <Text style={styles.rowLabel}>{t('twod_detail.est_total', 'ခန့်မှန်းစုစုပေါင်း:') as string}</Text>
                                     <Text style={styles.rowValueWhite}>{validTotal.toLocaleString()} {realCurrency}</Text>
                                 </View>
                                 <View style={styles.grid2}>
                                     <TouchableOpacity style={styles.stepBackBtn} onPress={() => setStep(2)}>
                                         <MaterialIcons name="arrow-back" size={20} color="#93C5FD" />
-                                        <Text style={styles.stepBackText}>BACK</Text>
+                                        <Text style={styles.stepBackText}>{t('twod_detail.btn_back', 'နောက်သို့') as string}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={[styles.confirmBtn, (isInsufficient || pin.length !== 6 || mutation.isPending) && { opacity: 0.5 }]} disabled={isInsufficient || pin.length !== 6 || mutation.isPending} onPress={submitBet}>
                                         <LinearGradient colors={['#34D399', '#10B981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.confirmBtnGradient}>
-                                            {mutation.isPending ? <ActivityIndicator color="#042F21" /> : <><Text style={styles.confirmBtnText}>CONFIRM{'\n'}WAGER</Text><MaterialIcons name="arrow-forward" size={20} color="#042F21" /></>}
+                                            {mutation.isPending ? <ActivityIndicator color="#042F21" /> : <><Text style={styles.confirmBtnText}>{t('twod_detail.btn_confirm_wager', 'လောင်းကြေး\nအတည်ပြုမည်') as string}</Text><MaterialIcons name="arrow-forward" size={20} color="#042F21" /></>}
                                         </LinearGradient>
                                     </TouchableOpacity>
                                 </View>
@@ -529,13 +663,13 @@ export default function TwoDDetailScreen() {
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
                             <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>{bulkPick.label} ({modalNumbers.length})</Text>
+                                <Text style={styles.modalTitle}>{bulkPick.label} ({modalNumbers.length}) {t('twod_detail.modal_kuet', 'ကွက်') as string}</Text>
                                 <Pressable onPress={() => setBulkPick(null)}><MaterialIcons name="close" size={24} color="rgba(255,255,255,0.4)" /></Pressable>
                             </View>
 
                             {BULK_MODES[bulkPick.key] === 'digits' && (
                                 <View style={{ marginBottom: 16 }}>
-                                    <Text style={styles.label}>ဂဏန်းရွေးပါ</Text>
+                                    <Text style={styles.label}>{t('twod_detail.quick_khway', 'ခွေ') as string}</Text>
                                     <View style={styles.digitsGrid}>
                                         {Array.from({ length: 10 }, (_, i) => String(i)).map(d => {
                                             const active = modalDigits.includes(d);
@@ -550,7 +684,7 @@ export default function TwoDDetailScreen() {
                                         <View style={[styles.checkbox, modalIncludeDbl && styles.checkboxActive]}>
                                             {modalIncludeDbl && <MaterialIcons name="check" size={14} color="#0B1221" />}
                                         </View>
-                                        <Text style={styles.checkboxText}>အပူးပါ ထည့်မည်</Text>
+                                        <Text style={styles.checkboxText}>{t('twod_detail.quick_apu', 'အပူး') as string}ပါ ထည့်မည်</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -563,13 +697,13 @@ export default function TwoDDetailScreen() {
                             )}
 
                             <View style={{ marginBottom: 16 }}>
-                                <Text style={styles.label}>ငွေပမာဏ (MMK)</Text>
+                                <Text style={styles.label}>{t('twod_detail.amount_mmk', 'ငွေပမာဏ (MMK)') as string}</Text>
                                 <TextInput style={styles.input} keyboardType="number-pad" value={modalAmt} onChangeText={v => { setModalError(null); setModalAmt(v); }} />
                             </View>
 
                             {modalNumbers.length > 0 && (
                                 <View style={{ marginBottom: 16 }}>
-                                    <Text style={styles.label}>ပါဝင်သော ဂဏန်းများ</Text>
+                                    <Text style={styles.label}>{t('twod_detail.modal_included_nums', 'ပါဝင်သော ဂဏန်းများ') as string}</Text>
                                     <ScrollView style={{ maxHeight: 100 }} nestedScrollEnabled><View style={styles.chipsRow}>{modalNumbers.map(n => <View key={n} style={styles.chipBlue}><Text style={styles.chipTextBlue}>{n}</Text></View>)}</View></ScrollView>
                                 </View>
                             )}
@@ -577,15 +711,57 @@ export default function TwoDDetailScreen() {
                             {modalError && <Text style={styles.errorText}>{modalError}</Text>}
 
                             <View style={styles.modalActions}>
-                                <TouchableOpacity style={styles.modalCancel} onPress={() => setBulkPick(null)}><Text style={styles.modalCancelText}>ပယ်ဖျက်မည်</Text></TouchableOpacity>
+                                <TouchableOpacity style={styles.modalCancel} onPress={() => setBulkPick(null)}><Text style={styles.modalCancelText}>{t('twod_detail.modal_cancel', 'ပယ်ဖျက်မည်') as string}</Text></TouchableOpacity>
                                 <TouchableOpacity style={styles.modalConfirm} onPress={confirmModal}>
-                                    <LinearGradient colors={['#00e676', '#2ac48b']} style={styles.modalConfirmGrad}><Text style={styles.modalConfirmText}>အတည်ပြုသည်</Text></LinearGradient>
+                                    <LinearGradient colors={['#00e676', '#2ac48b']} style={styles.modalConfirmGrad}><Text style={styles.modalConfirmText}>{t('twod_detail.modal_confirm', 'အတည်ပြုသည်') as string}</Text></LinearGradient>
                                 </TouchableOpacity>
                             </View>
                         </View>
                     </View>
                 </Modal>
             )}
+
+            <Modal transparent visible={customAlert.visible} animationType="fade">
+                <View style={styles.alertOverlay}>
+                    <View style={styles.alertBox}>
+                        <View style={[styles.alertIconWrap,
+                        customAlert.type === 'success' ? { backgroundColor: 'rgba(16, 185, 129, 0.2)' } :
+                            customAlert.type === 'warning' ? { backgroundColor: 'rgba(245, 158, 11, 0.2)' } :
+                                { backgroundColor: 'rgba(248, 113, 113, 0.2)' }
+                        ]}>
+                            <MaterialIcons
+                                name={customAlert.type === 'success' ? 'check-circle' : customAlert.type === 'warning' ? 'warning' : 'error'}
+                                size={32}
+                                color={customAlert.type === 'success' ? '#10B981' : customAlert.type === 'warning' ? '#F59E0B' : '#F87171'}
+                            />
+                        </View>
+                        <Text style={styles.alertTitle}>{customAlert.title}</Text>
+                        <Text style={styles.alertMessage}>{customAlert.message}</Text>
+
+                        <View style={styles.alertActions}>
+                            {customAlert.showCancel && (
+                                <TouchableOpacity style={styles.alertCancelBtn} onPress={() => setCustomAlert({ ...customAlert, visible: false })}>
+                                    <Text style={styles.alertCancelText}>{t('twod_detail.alert_cancel', 'မလုပ်ပါ') as string}</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                                style={[styles.alertConfirmBtn, customAlert.type === 'error' && { backgroundColor: '#F87171' }]}
+                                onPress={() => {
+                                    setCustomAlert({ ...customAlert, visible: false });
+                                    if (customAlert.onConfirm) customAlert.onConfirm();
+                                }}
+                            >
+                                <Text style={styles.alertConfirmText}>{t('twod_detail.alert_ok', 'အိုကေ') as string}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            <Animated.View style={[styles.toastContainer, { opacity: toastOpacity }]}>
+                <MaterialIcons name="check-circle" size={18} color="#10B981" />
+                <Text style={styles.toastText}>{toastMessage}</Text>
+            </Animated.View>
         </KeyboardAvoidingView>
     );
 }
@@ -604,48 +780,51 @@ const styles = StyleSheet.create({
     pillInner: { backgroundColor: '#042F21', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 19 },
     pillText: { color: '#10B981', fontSize: 12, fontWeight: 'bold' },
 
-    section: { marginBottom: 20 },
+    section: { marginBottom: 20, zIndex: 10 },
+
     timeBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E293B', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     timeBoxTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-    timeBoxSub: { color: '#9CA3AF', fontSize: 10, marginTop: 4, letterSpacing: 0.5 },
-
-    lockedBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.08)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)', borderRadius: 12, padding: 16 },
-    lockedTitle: { color: '#F87171', fontSize: 14, fontWeight: 'bold', marginBottom: 4 },
-    lockedSub: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+    timeBoxSub: { color: '#FBBF24', fontSize: 11, marginTop: 4, letterSpacing: 0.5 },
 
     timeDropdownContainer: { marginTop: 8, backgroundColor: '#080E28', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, overflow: 'hidden' },
     timeDropdownItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     timeDropdownItemActive: { backgroundColor: 'rgba(16, 185, 129, 0.12)' },
     timeDropdownText: { color: '#E2E8F0', fontSize: 15, fontWeight: 'bold' },
 
+    lockedBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.08)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)', borderRadius: 12, padding: 16 },
+    lockedTitle: { color: '#F87171', fontSize: 14, fontWeight: 'bold', marginBottom: 4 },
+    lockedSub: { color: 'rgba(255, 255, 255, 0.5)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+
     label: { color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' },
     input: { height: 48, backgroundColor: 'rgba(5, 10, 31, 0.68)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 12, color: '#f7f9ff', fontSize: 16, fontWeight: 'bold', paddingHorizontal: 16, textAlign: 'center' },
     textarea: { minHeight: 120, backgroundColor: 'rgba(5, 10, 31, 0.68)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 12, color: '#f7f9ff', fontSize: 15, padding: 12, marginBottom: 12 },
-    hintText: { color: 'rgba(255,255,255,0.35)', fontSize: 10, marginBottom: 12, lineHeight: 16 },
     errorText: { color: '#ff9b93', fontSize: 12, marginTop: 8, marginBottom: 8 },
-    skipNotice: { backgroundColor: 'rgba(245, 158, 11, 0.06)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.15)', borderRadius: 8, padding: 8, marginTop: 8 },
-    skipText: { color: 'rgba(252, 211, 77, 0.9)', fontSize: 11 },
 
     fastCard: { backgroundColor: 'rgba(251, 191, 36, 0.04)', borderWidth: 1, borderColor: 'rgba(251, 191, 36, 0.2)', borderRadius: 16, padding: 16, marginBottom: 20 },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 },
     fastTitle: { color: '#fbbf24', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
     inputRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-    grid4: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-    quickPickBtn: { width: '23%', height: 44, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+
+    grid4: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, marginBottom: 12 },
+    quickPickBtn: { width: '23.5%', height: 44, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     quickPickText: { color: '#e5e7eb', fontSize: 12, fontWeight: 'bold' },
+
+    hintText: { color: 'rgba(255,255,255,0.35)', fontSize: 10, marginBottom: 12, lineHeight: 16 },
 
     pasteCard: { backgroundColor: 'rgba(59, 130, 246, 0.05)', borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(59, 130, 246, 0.4)', borderRadius: 16, padding: 16, marginBottom: 20 },
     pasteTitle: { color: '#60a5fa', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
     pasteBtn: { flexDirection: 'row', height: 48, backgroundColor: '#3b82f6', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    pasteBtnText: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
+    pasteBtnText: { color: '#FFF', fontSize: 13, fontWeight: 'bold', marginLeft: 8 },
 
     summaryCardOuter: { backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: 1, borderRadius: 16, marginBottom: 20 },
     summaryCardInner: { backgroundColor: '#0B1221', borderRadius: 15, padding: 16 },
     summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     summaryTitle: { color: '#9CA3AF', fontSize: 11, fontWeight: 'bold', letterSpacing: 1.5, textTransform: 'uppercase' },
     summaryChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
     chipValid: { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' },
     chipInvalid: { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.2)' },
+    chipText: { fontSize: 13 },
     chipTextValid: { color: '#10B981', fontWeight: 'bold' },
     chipTextInvalid: { color: '#F59E0B', fontWeight: 'bold' },
     chipAmountText: { fontWeight: 'normal', opacity: 0.6 },
@@ -687,7 +866,7 @@ const styles = StyleSheet.create({
     nextBtnText: { color: '#042F21', fontSize: 16, fontWeight: 'bold' },
     nextIconWrapper: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0, 0, 0, 0.1)', alignItems: 'center', justifyContent: 'center' },
 
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
     modalContent: { backgroundColor: '#19202d', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 20, padding: 20 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
     modalTitle: { color: '#fbbf24', fontSize: 16, fontWeight: 'bold' },
@@ -708,6 +887,18 @@ const styles = StyleSheet.create({
     modalConfirm: { flex: 1, height: 48, borderRadius: 12, overflow: 'hidden' },
     modalConfirmGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     modalConfirmText: { color: '#042F21', fontSize: 13, fontWeight: 'bold', letterSpacing: 0.5 },
-    chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
-    chipText: { fontSize: 13 },
+
+    toastContainer: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: '#1F2937', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
+    toastText: { color: '#F9FAFB', fontSize: 14, fontWeight: 'bold', marginLeft: 8 },
+
+    alertOverlay: { flex: 1, backgroundColor: 'rgba(4, 10, 31, 0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    alertBox: { width: '100%', maxWidth: 320, backgroundColor: '#0F172A', borderRadius: 24, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    alertIconWrap: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+    alertTitle: { color: '#F8FAFC', fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
+    alertMessage: { color: '#94A3B8', fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+    alertActions: { flexDirection: 'row', gap: 12, width: '100%' },
+    alertCancelBtn: { flex: 1, height: 48, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    alertCancelText: { color: '#94A3B8', fontSize: 14, fontWeight: 'bold' },
+    alertConfirmBtn: { flex: 1, height: 48, backgroundColor: '#10B981', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    alertConfirmText: { color: '#FFF', fontSize: 14, fontWeight: 'bold' }
 });

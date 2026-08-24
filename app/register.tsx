@@ -20,6 +20,10 @@ import { useTranslation } from 'react-i18next';
 
 import { registerUser } from '../api/auth';
 
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import { createFcmTokenAPI } from '../api/main';
+
 const initialForm = {
     username: '',
     email: '',
@@ -55,7 +59,19 @@ export default function RegisterPage() {
                 pin_confirmation: form.pin_confirmation,
             });
         },
-        onSuccess: () => {
+        onSuccess: async () => {
+            try {
+                const fcmToken = (await Notifications.getDevicePushTokenAsync()).data;
+
+                await createFcmTokenAPI({
+                    token: fcmToken,
+                    device_type: Platform.OS === 'ios' ? 'ios' : 'android',
+                    device_name: Device.modelName || 'Unknown Device'
+                });
+            } catch (error) {
+                console.log(error);
+            }
+
             router.replace('/wallet/bank-setup');
         },
         onError: (err: any) => {

@@ -11,13 +11,16 @@ import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import '@/global.css';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-import { getMaintenanceSettingsAPI } from '@/api/main';
+import { createFcmTokenAPI, getMaintenanceSettingsAPI } from '@/api/main';
 import CustomSplashScreen from '@/components/CustomSplashScreen';
 import MaintenanceScreen from '@/src/components/MaintenanceScreen';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 
-// 🌟 App မတက်ခင် Native Splash Screen ကို အရင်ဖမ်းထားမည်
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
@@ -40,46 +43,57 @@ export default function RootLayout() {
 function RootNavigator() {
   const colorScheme = useColorScheme();
 
-  // 🧠 EINSTEIN OPTIMIZATION 1: React Query ဖြင့် အလန်းစား Fetching (Manual Try/Catch များကို ဖယ်ရှားထားသည်)
+  const { pushToken } = usePushNotifications();
+
+  useEffect(() => {
+    if (pushToken) {
+      const sendTokenToBackend = async () => {
+        try {
+          await createFcmTokenAPI({
+            token: pushToken,
+            device_type: Platform.OS === 'ios' ? 'ios' : 'android',
+            device_name: Device.modelName || 'Unknown Device'
+          });
+        } catch (error: any) {
+          if (error.response?.status === 401) {
+          }
+        }
+      };
+      sendTokenToBackend();
+    }
+  }, [pushToken]);
+
   const { data: maintenanceData, isFetched: isApiDone } = useQuery({
     queryKey: ['maintenanceCheck'],
     queryFn: async () => {
       const response = await getMaintenanceSettingsAPI();
       return response?.maintenance;
     },
-    staleTime: 1000 * 60 * 5, // ၅ မိနစ်အတွင်း နောက်တစ်ကြိမ် ထပ်မစစ်တော့ပါ (ဘက်ထရီသက်သာစေရန်)
+    staleTime: 1000 * 60 * 5,
     retry: 2,
   });
 
-  // 🧠 EINSTEIN OPTIMIZATION 2: Parallel Animation Timer (The Pro Pattern)
   const [isAnimDone, setIsAnimDone] = useState(false);
 
   useEffect(() => {
-    // App စပွင့်သည်နှင့် API စစ်နေစဉ်အတွင်း Animation ကို ပြိုင်တူ (Parallel) ဖွင့်ထားမည်
     const timer = setTimeout(() => {
-      setIsAnimDone(true); // ၁.၅ စက္ကန့်ပြည့်ပါက Animation ပြီးဆုံးကြောင်း ကြေညာမည်
+      setIsAnimDone(true);
     }, 1500);
 
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    // API အလုပ်လုပ်ပြီးသွားပါက Native Splash ကို ချက်ချင်းဖျောက်မည် 
-    // (သို့မှသာ ကျွန်ုပ်တို့၏ Custom Animated Splash Screen ကို မြင်ရမည်ဖြစ်သည်)
     if (isApiDone) {
       SplashScreen.hideAsync().catch(console.warn);
     }
   }, [isApiDone]);
 
-  // API လည်းစစ်ပြီးရမည်၊ Animation လည်းပြီးဆုံးရမည်။ နှစ်ခုစလုံး ပြည့်စုံမှသာ Main App သို့ ဝင်ခွင့်ပြုမည်။
   const isShowSplash = !isApiDone || !isAnimDone;
 
   const isMaintenance = maintenanceData?.is_enabled;
   const maintenanceMessage = maintenanceData?.message || 'စနစ်ပြုပြင်မွမ်းမံနေပါသည်။';
 
-  // 🧠 EINSTEIN OPTIMIZATION 3: Single Provider Mounting
-  // Provider များကို အခြေအနေ (၃) ခုစလုံး၏ အပြင်ဘက်ဆုံး တစ်နေရာတည်းတွင်သာ အုပ်ထားသဖြင့်
-  // App ပွင့်လာချိန်တွင် Screen ကြီးတစ်ခုလုံး အလကားနေရင်း ဖျက်လိုက်/ဆောက်လိုက် (Re-mount) ဖြစ်ခြင်းမှ ၁၀၀% ကာကွယ်သွားပါပြီ။
   return (
     <GluestackUIProvider mode="light">
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

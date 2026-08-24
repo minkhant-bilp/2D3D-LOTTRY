@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "896528267116",
+    "project_id": "zarmani1108",
+    "storage_bucket": "zarmani1108.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:896528267116:android:e9b81134b16301bfd32549",
+        "android_client_info": {
+          "package_name": "com.zarmani.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDt0OJZqWEVQ6MdJLGadxYYXWsXqyHQbvY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

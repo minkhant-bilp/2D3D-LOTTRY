@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
@@ -20,9 +20,8 @@ import { useTranslation } from 'react-i18next';
 
 import { loginUser } from '../api/auth';
 
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
-import { createFcmTokenAPI } from '../api/main';
+import { useAppStore } from '../store/useAppStore';
+import { registerDeviceToken } from '../utils/registerDeviceToken';
 
 const initialForm = {
     email: '',
@@ -34,6 +33,16 @@ export default function LoginPage() {
     const insets = useSafeAreaInsets();
 
     const { t } = useTranslation();
+
+    // Set by SessionExpiryWatcher when the server dropped the session. A silent
+    // bounce to login is indistinguishable from the app misbehaving.
+    const { sessionEnded } = useLocalSearchParams<{ sessionEnded?: string }>();
+    const sessionEndedMessage =
+        sessionEnded === 'banned'
+            ? (t('auth.account_banned', 'သင့်အကောင့်ကို အသုံးပြုခွင့် ပိတ်ပင်ထားပါသည်။') as string)
+            : sessionEnded === 'expired'
+                ? (t('auth.session_expired', 'သင့်ဆက်ရှင် သက်တမ်းကုန်သွားပါပြီ။ ပြန်လည်ဝင်ရောက်ပါ။') as string)
+                : null;
 
     const [form, setForm] = useState(initialForm);
     const [showPassword, setShowPassword] = useState(false);
@@ -47,17 +56,9 @@ export default function LoginPage() {
             });
         },
         onSuccess: async () => {
-            try {
-                const fcmToken = (await Notifications.getDevicePushTokenAsync()).data;
-
-                await createFcmTokenAPI({
-                    token: fcmToken,
-                    device_type: Platform.OS === 'ios' ? 'ios' : 'android',
-                    device_name: Device.modelName || 'Unknown Device'
-                });
-            } catch (error) {
-                console.log(error);
-            }
+            // force: this account just signed in on this device.
+            await registerDeviceToken({ force: true });
+            void useAppStore.getState().refreshNotifications();
 
             router.replace('/(tabs)');
         },
@@ -174,9 +175,9 @@ export default function LoginPage() {
                             </View>
                         </View>
 
-                        {errorMessage && (
+                        {(errorMessage ?? sessionEndedMessage) && (
                             <View style={styles.errorContainer}>
-                                <Text style={styles.errorText}>{errorMessage}</Text>
+                                <Text style={styles.errorText}>{errorMessage ?? sessionEndedMessage}</Text>
                             </View>
                         )}
 

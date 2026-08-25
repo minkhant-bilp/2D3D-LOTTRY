@@ -11,19 +11,20 @@ import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import '@/global.css';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-import { createFcmTokenAPI, getMaintenanceSettingsAPI } from '@/api/main';
+import { getMaintenanceSettingsAPI } from '@/api/main';
 import CustomSplashScreen from '@/components/CustomSplashScreen';
+import SessionExpiryWatcher from '@/components/SessionExpiryWatcher';
+import ToastBridge from '@/components/ToastBridge';
+import { queryClient } from '@/lib/queryClient';
 import MaintenanceScreen from '@/src/components/MaintenanceScreen';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { useAuthStore } from '@/store/useAuthStore';
+import { registerDeviceToken } from '@/utils/registerDeviceToken';
 
 SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient();
 
 export const unstable_settings = {
   initialRouteName: 'index',
@@ -43,23 +44,20 @@ export default function RootLayout() {
 function RootNavigator() {
   const colorScheme = useColorScheme();
 
-  const { pushToken } = usePushNotifications();
+  // Stack.Protected reads this, so the store has to be rehydrated from
+  // SecureStore at boot — nothing called checkAuth() before now.
+  const isSignedIn = useAuthStore((state) => state.token != null);
 
   useEffect(() => {
+    void useAuthStore.getState().checkAuth();
+  }, []);
+
+  const { pushToken } = usePushNotifications();
+
+  // Throttled to once a day, and a no-op until the user is signed in.
+  useEffect(() => {
     if (pushToken) {
-      const sendTokenToBackend = async () => {
-        try {
-          await createFcmTokenAPI({
-            token: pushToken,
-            device_type: Platform.OS === 'ios' ? 'ios' : 'android',
-            device_name: Device.modelName || 'Unknown Device'
-          });
-        } catch (error: any) {
-          if (error.response?.status === 401) {
-          }
-        }
-      };
-      sendTokenToBackend();
+      void registerDeviceToken();
     }
   }, [pushToken]);
 
@@ -97,6 +95,8 @@ function RootNavigator() {
   return (
     <GluestackUIProvider mode="light">
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <ToastBridge />
+        <SessionExpiryWatcher />
 
         {isShowSplash ? (
           <CustomSplashScreen />
@@ -108,22 +108,27 @@ function RootNavigator() {
 
             <Stack.Screen name="register" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{ headerShown: false }} />
-
-            <Stack.Screen name="wallet/bank-setup" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-
-            <Stack.Screen name="gambling" options={{ headerShown: false }} />
-            <Stack.Screen name="user/profile" options={{ headerShown: false }} />
-            <Stack.Screen name="user/bankinfo" options={{ headerShown: false }} />
-            <Stack.Screen name="noti/notifications" options={{ headerShown: false }} />
-            <Stack.Screen name="bets/twoD" options={{ headerShown: false }} />
-            <Stack.Screen name="bets/threeD" options={{ headerShown: false }} />
-            <Stack.Screen name="wallet-profile" options={{ headerShown: false }} />
-            <Stack.Screen name="withdrawal" options={{ headerShown: false }} />
-            <Stack.Screen name="results/twoDresult" options={{ headerShown: false }} />
-            <Stack.Screen name="user/bank-info" options={{ headerShown: false }} />
             <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
-            <Stack.Screen name="results/threeDresult" options={{ headerShown: false }} />
+
+            {/* Everything past here needs a session. Without the guard a push
+                deep link (or any stale navigation state) drops a signed-out
+                user straight onto an inner screen that then 401s forever. */}
+            <Stack.Protected guard={isSignedIn}>
+              <Stack.Screen name="wallet/bank-setup" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+              <Stack.Screen name="gambling" options={{ headerShown: false }} />
+              <Stack.Screen name="user/profile" options={{ headerShown: false }} />
+              <Stack.Screen name="noti/notifications" options={{ headerShown: false }} />
+              <Stack.Screen name="bets/twoD" options={{ headerShown: false }} />
+              <Stack.Screen name="bets/threeD" options={{ headerShown: false }} />
+              <Stack.Screen name="wallet-profile" options={{ headerShown: false }} />
+              <Stack.Screen name="withdrawal" options={{ headerShown: false }} />
+              <Stack.Screen name="results/twoDresult" options={{ headerShown: false }} />
+              <Stack.Screen name="user/bank-info" options={{ headerShown: false }} />
+              <Stack.Screen name="help-center" options={{ headerShown: false }} />
+              <Stack.Screen name="results/threeDresult" options={{ headerShown: false }} />
+            </Stack.Protected>
           </Stack>
         )}
 

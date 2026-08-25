@@ -42,7 +42,8 @@ const en = {
     register_error_pin_mismatch: "Security PINs do not match.",
     register_error_failed: "Account registration failed.",
     invalid_credentials: "Incorrect email or password.",
-    account_banned: "Your account has been banned."
+    account_banned: "Your account has been banned.",
+    session_expired: "Your session has expired. Please sign in again."
 
     },
     common: {
@@ -60,6 +61,25 @@ const en = {
 setting_page: {
     eyebrow: "Preferences",
     title: "Settings"
+},
+help_center: {
+    eyebrow: "Support",
+    title: "Help Center",
+    desc: "Reach support channels and browse quick answers for common issues.",
+    contact_channels: "Contact channels",
+    available_daily: "Available daily",
+    faq: "FAQ",
+    quick_answers: "2 quick answers",
+    fb_support: "Facebook Support",
+    fb_support_desc: "Chat with live support agents",
+    telegram: "Telegram Line",
+    telegram_desc: "Fast response for payment and ticket issues",
+    viber: "Viber Contact",
+    viber_desc: "Voice and text support for urgent cases",
+    faq_q1: "How long does a deposit approval take?",
+    faq_a1: "Most requests are approved within a few minutes when transfer notes are complete.",
+    faq_q2: "Can I edit a number slip after submit?",
+    faq_a2: "No, submitted slips are locked, so review picks and stake before final confirmation."
 },
 notification: {
     eyebrow: "Notifications",

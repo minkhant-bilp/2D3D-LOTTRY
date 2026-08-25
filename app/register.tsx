@@ -20,9 +20,7 @@ import { useTranslation } from 'react-i18next';
 
 import { registerUser } from '../api/auth';
 
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
-import { createFcmTokenAPI } from '../api/main';
+import { registerDeviceToken } from '../utils/registerDeviceToken';
 
 const initialForm = {
     username: '',
@@ -60,17 +58,8 @@ export default function RegisterPage() {
             });
         },
         onSuccess: async () => {
-            try {
-                const fcmToken = (await Notifications.getDevicePushTokenAsync()).data;
-
-                await createFcmTokenAPI({
-                    token: fcmToken,
-                    device_type: Platform.OS === 'ios' ? 'ios' : 'android',
-                    device_name: Device.modelName || 'Unknown Device'
-                });
-            } catch (error) {
-                console.log(error);
-            }
+            // force: this account just signed in on this device.
+            await registerDeviceToken({ force: true });
 
             router.replace('/wallet/bank-setup');
         },

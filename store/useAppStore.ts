@@ -7,7 +7,8 @@ interface AppState {
     notificationStats: any | null;
     refreshWallet: () => Promise<void>;
     refreshNotifications: () => Promise<void>;
-    clearUnreadCount: () => void; 
+    clearUnreadCount: () => void;
+    clearSession: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -36,5 +37,10 @@ export const useAppStore = create<AppState>((set) => ({
         notificationStats: state.notificationStats 
             ? { ...state.notificationStats, unread: 0 } 
             : { unread: 0 }
-    }))
+    })),
+
+    // Wallet and notification counts belong to one account. Left behind, the
+    // next account signed in on this device sees the previous user's balance
+    // until the first refresh lands.
+    clearSession: () => set({ wallet: null, walletLoading: true, notificationStats: null }),
 }));

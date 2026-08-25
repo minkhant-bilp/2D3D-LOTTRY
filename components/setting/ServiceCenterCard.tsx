@@ -22,6 +22,12 @@ const serviceItems: ServiceItem[] = [
         icon: 'notifications-none',
     },
     {
+        id: 'help-center',
+        title: 'အကူအညီစင်တာ',
+        path: '/help-center',
+        icon: 'support-agent',
+    },
+    {
         id: 'about',
         title: 'ကိုယ်ရေးလုံခြုံမှု မူဝါဒ',
         path: '/privacy-policy',

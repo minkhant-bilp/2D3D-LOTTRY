@@ -8,8 +8,15 @@
     "scheme": "minkhant",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "updates": {
+      "url": "https://u.expo.dev/a5ecefc1-87c0-4264-88ff-8d698569d352"
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zarmani.app"
     },
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -41,7 +48,15 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#00E676",
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,17 +1,24 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { getMe } from '../../api/main';
 
 export default function UserProfilePage() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const [user] = useState({
-        username: 'TesterKhant',
-        email: 'testerkhant@gmail.com',
-        role: 'USER'
+    // Same ['me'] query the header and the settings card already use.
+    const { data: user, isLoading, isError } = useQuery({
+        queryKey: ['me'],
+        queryFn: async () => {
+            const res: any = await getMe();
+            return res.data?.user;
+        },
+        staleTime: 1000 * 60 * 5,
     });
 
     return (
@@ -26,6 +33,15 @@ export default function UserProfilePage() {
                 </View>
             </View>
 
+            {isLoading ? (
+                <ActivityIndicator size="large" color="#93c5fd" style={{ marginTop: 40 }} />
+            ) : isError || !user ? (
+                <View style={{ marginTop: 40, alignItems: 'center' }}>
+                    <Text style={{ color: '#ef4444', fontSize: 14 }}>
+                        {'ပရိုဖိုင် ရယူ၍ မရပါ'}
+                    </Text>
+                </View>
+            ) : (
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
                 <View style={styles.card}>
@@ -33,12 +49,12 @@ export default function UserProfilePage() {
                         <View style={styles.heroLeft}>
                             <View style={styles.avatar}>
                                 <Text style={styles.avatarText}>
-                                    {user.username.slice(0, 2).toUpperCase()}
+                                    {(user.username ?? user.email ?? '?').slice(0, 2).toUpperCase()}
                                 </Text>
                             </View>
                             <View style={styles.heroInfo}>
-                                <Text style={styles.heroName}>{user.username}</Text>
-                                <Text style={styles.heroEmail}>{user.email}</Text>
+                                <Text style={styles.heroName}>{user.username ?? '—'}</Text>
+                                <Text style={styles.heroEmail}>{user.email ?? '—'}</Text>
                             </View>
                         </View>
 
@@ -46,7 +62,7 @@ export default function UserProfilePage() {
                             <MaterialIcons name="person" size={12} color="#D6B560" style={{ marginTop: 2 }} />
                             <View style={styles.roleChipTextContainer}>
                                 <Text style={styles.roleChipText}>ROLE ·</Text>
-                                <Text style={styles.roleChipText}>{user.role}</Text>
+                                <Text style={styles.roleChipText}>{(user.role ?? 'user').toUpperCase()}</Text>
                             </View>
                         </View>
                     </View>
@@ -58,7 +74,7 @@ export default function UserProfilePage() {
                             <MaterialIcons name="person" size={16} color="#9CA3AF" />
                             <Text style={styles.labelText}>ပြသမည့်နာမည်</Text>
                         </View>
-                        <Text style={styles.valueText}>{user.username}</Text>
+                        <Text style={styles.valueText}>{user.username ?? '—'}</Text>
                     </View>
 
                     <View style={styles.infoRow}>
@@ -66,7 +82,7 @@ export default function UserProfilePage() {
                             <MaterialIcons name="mail" size={16} color="#9CA3AF" />
                             <Text style={styles.labelText}>အီးမေးလ်</Text>
                         </View>
-                        <Text style={styles.valueText}>{user.email}</Text>
+                        <Text style={styles.valueText}>{user.email ?? '—'}</Text>
                     </View>
 
                     <View style={styles.infoRow}>
@@ -74,14 +90,14 @@ export default function UserProfilePage() {
                             <View style={{ width: 16 }} />
                             <Text style={styles.labelText}>အဆင့်</Text>
                         </View>
-                        <Text style={styles.valueText}>{user.role}</Text>
+                        <Text style={styles.valueText}>{(user.role ?? 'user').toUpperCase()}</Text>
                     </View>
                 </View>
 
                 <View style={[styles.card, { marginTop: 20 }]}>
                     <Text style={styles.opsTitle}>လုပ်ဆောင်ချက်များ:</Text>
 
-                    <Pressable onPress={() => router.push('/user/bankinfo')} style={{ marginBottom: 12 }}>
+                    <Pressable onPress={() => router.push('/user/bank-info')} style={{ marginBottom: 12 }}>
                         {({ pressed }) => (
                             <View style={[styles.opsOuterBorder, pressed && styles.opsOuterBorderPressed]}>
                                 <View style={[styles.opsInnerCard, pressed && styles.opsInnerCardPressed]}>
@@ -92,7 +108,7 @@ export default function UserProfilePage() {
                         )}
                     </Pressable>
 
-                    <Pressable onPress={() => router.push('/')}>
+                    <Pressable onPress={() => router.push('/gambling/gambling-history')}>
                         {({ pressed }) => (
                             <View style={[styles.opsOuterBorder, pressed && styles.opsOuterBorderPressed]}>
                                 <View style={[styles.opsInnerCard, pressed && styles.opsInnerCardPressed]}>
@@ -105,6 +121,7 @@ export default function UserProfilePage() {
                 </View>
 
             </ScrollView>
+            )}
         </View>
     );
 }

@@ -1,4 +1,6 @@
-import { clearToken, setWalletCurrency, setupBankInfo } from '@/api/auth';
+import { logoutUser, setWalletCurrency, setupBankInfo } from '@/api/auth';
+import { logoutAllFcmTokensAPI } from '@/api/main';
+import { teardownSession } from '@/utils/teardownSession';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -74,15 +76,26 @@ export default function BankSetupPage() {
         }
     });
 
+    // Same full teardown as the settings logout — this escape hatch used to only
+    // drop the local token, leaving the server session and the FCM registration
+    // live and the previous account's state in memory.
     const logoutMutation = useMutation({
         mutationFn: async () => {
-            await clearToken();
+            try {
+                await logoutAllFcmTokensAPI();
+            } catch (fcmError) {
+                console.log('FCM token clearing failed (non-fatal):', fcmError);
+            }
+
+            await logoutUser();
+            await teardownSession();
         },
         onSuccess: () => {
             router.replace('/login');
         },
         onError: (err) => {
             console.error(err);
+            router.replace('/login');
         }
     });
 

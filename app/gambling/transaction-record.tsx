@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { listWalletTransactionsAPI } from '../../api/main';
 import { useAppStore } from '../../store/useAppStore';
+import { listenForDepositNotifications } from '../../utils/depositNotificationBus';
 
 type WalletTransactionType = 'DEPOSIT' | 'BET_PLACE' | 'BET_WIN' | 'BET_REFUND' | 'WITHDRAWAL' | 'WITHDRAWAL_REFUND' | 'ADJUSTMENT';
 type FilterType = WalletTransactionType | null;
@@ -59,6 +60,7 @@ export default function TransactionRecordScreen() {
     const balance = useAppStore((state: any) => state.wallet?.balance ?? 0);
 
     const [filter, setFilter] = useState<FilterType>(null);
+    const queryClient = useQueryClient();
 
     const {
         data,
@@ -85,6 +87,15 @@ export default function TransactionRecordScreen() {
             return lastPage.transactions.length === 20 ? lastPage.page + 1 : undefined;
         }
     });
+
+    // An approved/rejected deposit changes this ledger, and a push is the only
+    // signal it happened while this screen was already open.
+    useEffect(() => {
+        const unsubscribe = listenForDepositNotifications(() => {
+            queryClient.invalidateQueries({ queryKey: ['walletTransactions'] });
+        });
+        return () => unsubscribe();
+    }, [queryClient]);
 
     // 🧠 EINSTEIN OPTIMIZATION 2: React Compiler ၏ စွမ်းရည်ကို အပြည့်အဝအသုံးပြု၍ useMemo အပိုကို ဖယ်ရှားပါသည်
     const transactions = data?.pages.flatMap((page) => page.transactions) || [];

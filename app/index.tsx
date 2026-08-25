@@ -37,5 +37,7 @@ export default function IndexPage() {
         return <Redirect href="/(tabs)" />;
     }
 
-    return <Redirect href="/register" />;
+    // Login, not register: a returning user whose session expired should not
+    // land on the signup form.
+    return <Redirect href="/login" />;
 }

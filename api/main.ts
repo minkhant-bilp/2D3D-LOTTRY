@@ -31,6 +31,9 @@ export const getMyBankInfoAPI = () =>
 export const createWithdrawalAPI = (payload: { amount: number; currency: string; security_pin: string }) => 
     axiosClient.post('/withdrawals', payload).then(res => res.data);
 
+export const getWithdrawalByIdAPI = (withdrawalId: string) => 
+    axiosClient.get(`/withdrawals/${withdrawalId}`).then(res => res.data);
+
 export const listBetsAPI = (params: { page: number; page_size: number }) => 
     axiosClient.get('/bets', { params }).then(res => res.data);
 
@@ -48,9 +51,6 @@ export const updateMyBankInfoAPI = (payload: { bank_name: string; account_name: 
 
 export const logoutAllFcmTokensAPI = () => 
     axiosClient.post('/fcm/logout-all').then(res => res.data);
-
-export const logoutUserAPI = () => 
-    axiosClient.post('/logout').then(res => res.data);
 
 export const createBetAPI = (payload: { 
     bet_type: string; 

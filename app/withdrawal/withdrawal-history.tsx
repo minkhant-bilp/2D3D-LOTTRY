@@ -92,7 +92,10 @@ export default function WithdrawalHistoryScreen() {
     const renderItem = useCallback(({ item: w }: { item: Withdrawal }) => {
         const status = STATUS_CONFIG[w.status];
         return (
-            <Pressable style={styles.listItem}>
+            <Pressable
+                style={({ pressed }) => [styles.listItem, pressed && { opacity: 0.7 }]}
+                onPress={() => router.push(`/withdrawal/${w.id}` as any)}
+            >
                 <View style={styles.listLeft}>
                     <Text style={styles.listTitle}>{t('withdraw_history.list_title', 'Withdrawal') as string}</Text>
                     <Text style={styles.listDate}>{formatDate(w.created_at)} · {w.bank_snapshot?.bank_name}</Text>
@@ -107,7 +110,7 @@ export default function WithdrawalHistoryScreen() {
                 </View>
             </Pressable>
         );
-    }, [t]);
+    }, [t, router]);
 
     const renderHeader = () => (
         <>

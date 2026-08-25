@@ -1,11 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Modal, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from 'react-native';
 
-import { logoutAllFcmTokensAPI, logoutUserAPI } from '../../api/main';
-import { useAppStore } from '../../store/useAppStore';
+import { logoutUser } from '../../api/auth';
+import { logoutAllFcmTokensAPI } from '../../api/main';
+import { teardownSession } from '../../utils/teardownSession';
 
 export default function LogoutButton() {
     const router = useRouter();
@@ -13,31 +13,25 @@ export default function LogoutButton() {
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-    const clearAuth = useAppStore((state: any) => state.clearAuth);
-    const clearWallet = useAppStore((state: any) => state.clearWallet);
-
     const onLogout = async () => {
         setIsLoggingOut(true);
 
+        // Every step here is best-effort. Logging out must succeed locally even
+        // when the server is unreachable or the token is already dead — the old
+        // code let a failed POST /logout skip the teardown and the redirect,
+        // which made a stale session impossible to leave.
         try {
-            try {
-                await logoutAllFcmTokensAPI();
-            } catch (fcmError) {
-                console.log("FCM Token clearing failed (non-fatal):", fcmError);
-            }
-
-            await logoutUserAPI();
-
-            if (clearWallet) clearWallet();
-            if (clearAuth) clearAuth();
-            await AsyncStorage.removeItem('zarmani:fcm-token-refreshed-at');
-
-            router.replace('/login');
-        } catch (error) {
-            console.log("Logout Error: ", error);
-            Alert.alert(t('auth.logout_error_title') as string, t('auth.logout_error_msg') as string);
-            setIsLoggingOut(false);
+            await logoutAllFcmTokensAPI();
+        } catch (fcmError) {
+            console.log('FCM token clearing failed (non-fatal):', fcmError);
         }
+
+        // Swallows its own errors and clears the token in a finally.
+        await logoutUser();
+
+        await teardownSession();
+
+        router.replace('/login');
     };
 
     return (

@@ -1,5 +1,5 @@
-import useTranslation from '@/hooks/useTranslation';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -87,9 +87,9 @@ export function MyTabBar({ state, descriptors, navigation }: BottomTabBarProps) 
 
     const getCustomLabel = (routeName: string): string => {
         switch (routeName) {
-            case 'index': return t.tabLive || 'Live';
-            case 'explore': return 'Bet';
-            case 'setting': return 'Setting';
+            case 'index': return t('tab.live', 'Live') as string;
+            case 'explore': return t('tab.bet', 'Bet') as string;
+            case 'setting': return t('tab.setting', 'Setting') as string;
             default: return routeName;
         }
     };

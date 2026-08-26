@@ -80,3 +80,7 @@ export const getMaintenanceSettingsAPI = () =>
 
 export const createFcmTokenAPI = (payload: { token: string; device_type: string; device_name?: string }) => 
     axiosClient.post('/fcm/token', payload).then(res => res.data);
+
+/** Releases just this device. axios only sends a DELETE body when it is under `data`. */
+export const deleteFcmTokenAPI = (token: string) => 
+    axiosClient.delete('/fcm/token', { data: { token } }).then(res => res.data);

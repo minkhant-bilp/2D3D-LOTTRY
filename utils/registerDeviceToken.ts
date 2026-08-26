@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import { createFcmTokenAPI } from '@/api/main';
+import { createFcmTokenAPI, deleteFcmTokenAPI } from '@/api/main';
 import { TOKEN_KEY } from '@/api/axiosClient';
 import {
     readPushTokenRefreshStamp,
@@ -48,5 +48,31 @@ export async function registerDeviceToken(opts?: { force?: boolean }): Promise<v
         await writePushTokenRefreshStamp();
     } catch (error) {
         console.warn('[fcm] device token registration failed', error);
+    }
+}
+
+/**
+ * Releases this device's FCM token before the session ends.
+ *
+ * Without it the row stays active under the departing account, so the next
+ * player to sign in on this handset collides with it, and until they do the old
+ * account's pushes keep arriving on a phone it no longer owns.
+ *
+ * Must run while the bearer token is still valid -- i.e. before POST /logout.
+ * Deliberately not /fcm/logout-all, which would also silence the player's other
+ * devices. Never throws: logout must not fail on this.
+ */
+export async function unregisterDeviceToken(): Promise<void> {
+    try {
+        const authToken = await SecureStore.getItemAsync(TOKEN_KEY);
+        if (authToken == null || authToken === '') return;
+
+        const pushToken = (await Notifications.getDevicePushTokenAsync()).data;
+        if (typeof pushToken !== 'string' || pushToken === '') return;
+
+        await deleteFcmTokenAPI(pushToken);
+    } catch (error) {
+        // A 404 here just means it was already gone.
+        console.warn('[fcm] device token release failed', error);
     }
 }

@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../store/useAuthStore'; // 🌟 Zustand ခေါ်သုံးမည်
 import { axiosClient, TOKEN_KEY } from './axiosClient';
+import { unregisterDeviceToken } from '@/utils/registerDeviceToken';
 
 export const getToken = async () => {
     return await SecureStore.getItemAsync(TOKEN_KEY);
@@ -65,6 +66,11 @@ export const verifyUser = async () => {
 };
 
 export const logoutUser = async () => {
+    // Before POST /logout, which deletes the Sanctum token and would turn this
+    // into a 401. Leaving the row behind hands the next player on this device a
+    // duplicate-key failure and keeps pushing this account to their phone.
+    await unregisterDeviceToken();
+
     try {
         await axiosClient.post('/logout'); 
     } catch (e) {

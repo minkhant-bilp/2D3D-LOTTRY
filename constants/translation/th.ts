@@ -189,7 +189,19 @@ twod_detail: {
     alert_fail_msg: "การวางเดิมพันล้มเหลว",
     alert_insufficient: "ยอดเงินไม่เพียงพอ",
     alert_exact_six_pin: "กรุณาใส่ PIN 6 หลักให้ถูกต้อง",
-    alert_min_one_num: "กรุณาเพิ่มอย่างน้อย 1 ตัวเลข"
+    alert_min_one_num: "กรุณาเพิ่มอย่างน้อย 1 ตัวเลข",
+    pill_hint: "แตะหมายเลขเพื่อแก้ไข หรือกดค้างเพื่อเลือกหลายรายการ",
+    pill_edit_title: "แก้ไขหมายเลข",
+    pill_save: "บันทึก",
+    pill_delete: "ลบ",
+    pill_cancel: "ยกเลิก",
+    select_all: "เลือกทั้งหมด",
+    selected_suffix: "รายการที่เลือก",
+    delete_selected: "ลบ",
+    confirm_delete_title: "ลบหมายเลข",
+    confirm_delete_msg: "ต้องการลบหมายเลขที่เลือกออกจากรายการหรือไม่?",
+    toast_removed: "ลบออกจากรายการแล้ว",
+    toast_updated: "อัปเดตหมายเลขแล้ว"
 },
 threed_detail: {
     header_title: "3D FLASH MODE",

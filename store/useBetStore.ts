@@ -16,6 +16,8 @@ interface BetState {
     addBetRow: () => void;
     removeBetRow: (id: string) => void;
     updateBetRow: (id: string, field: 'number' | 'amount', value: string) => void;
+    updateBetRowFields: (id: string, patch: Partial<Pick<BetNumberRow, 'number' | 'amount'>>) => void;
+    removeBetRows: (ids: string[]) => void;
     clearBetRows: () => void;
     setBetRowsBulk: (rows: BetNumberRow[]) => void;
     setPin: (pin: string) => void;
@@ -47,6 +49,22 @@ export const useBetStore = create<BetState>((set, get) => ({
     updateBetRow: (id, field, value) => set((state) => ({
         betRows: state.betRows.map(row => row.id === id ? { ...row, [field]: value } : row)
     })),
+
+    // Commits number + amount as one store write so an edit never lands half-applied.
+    updateBetRowFields: (id, patch) => set((state) => ({
+        betRows: state.betRows.map(row => row.id === id ? { ...row, ...patch } : row)
+    })),
+
+    // Bulk delete in one set(): looping removeBetRow re-renders N times and reads
+    // stale state between calls. Only ids in the set are dropped; every other row
+    // keeps its identity, amount and position.
+    removeBetRows: (ids) => set((state) => {
+        const drop = new Set(ids);
+        const kept = state.betRows.filter(row => !drop.has(row.id));
+        // Same contract as clearBetRows(): never leave the list literally empty,
+        // or the row-card form below the pills has nothing to render.
+        return { betRows: kept.length > 0 ? kept : [createEmptyRow()] };
+    }),
     
     clearBetRows: () => set({ betRows: [createEmptyRow()] }),
     

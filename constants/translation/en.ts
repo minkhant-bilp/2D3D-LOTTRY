@@ -193,7 +193,19 @@ twod_detail: {
     alert_fail_msg: "Failed to place bet.",
     alert_insufficient: "Insufficient balance.",
     alert_exact_six_pin: "Please enter exactly 6-digit PIN.",
-    alert_min_one_num: "Please add at least 1 number."
+    alert_min_one_num: "Please add at least 1 number.",
+    pill_hint: "Tap a number to edit it, or hold it to select several.",
+    pill_edit_title: "Edit number",
+    pill_save: "Save",
+    pill_delete: "Delete",
+    pill_cancel: "Cancel",
+    select_all: "Select all",
+    selected_suffix: "selected",
+    delete_selected: "Delete",
+    confirm_delete_title: "Remove numbers",
+    confirm_delete_msg: "Remove the selected numbers from your list?",
+    toast_removed: "Removed from list",
+    toast_updated: "Number updated"
 },
 threed_detail: {
     header_title: "3D FLASH MODE",

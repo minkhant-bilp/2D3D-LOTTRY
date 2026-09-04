@@ -193,7 +193,19 @@ twod_detail: {
     alert_fail_msg: "လောင်းကြေးတင်ခြင်း မအောင်မြင်ပါ။",
     alert_insufficient: "လက်ကျန်ငွေ မလုံလောက်ပါ။",
     alert_exact_six_pin: "PIN ဂဏန်း (၆) လုံး အတိအကျ ထည့်ပါ။",
-    alert_min_one_num: "ဂဏန်း အနည်းဆုံး ၁ ခု ထည့်ပါ။"
+    alert_min_one_num: "ဂဏန်း အနည်းဆုံး ၁ ခု ထည့်ပါ။",
+    pill_hint: "ပြင်ရန် ဂဏန်းကို နှိပ်ပါ။ အများကြီး ရွေးရန် ဖိထားပါ။",
+    pill_edit_title: "ဂဏန်း ပြင်မည်",
+    pill_save: "သိမ်းမည်",
+    pill_delete: "ဖျက်မည်",
+    pill_cancel: "မလုပ်တော့ပါ",
+    select_all: "အားလုံး ရွေးမည်",
+    selected_suffix: "ခု ရွေးထားသည်",
+    delete_selected: "ဖျက်မည်",
+    confirm_delete_title: "ဂဏန်းများ ဖျက်မည်",
+    confirm_delete_msg: "ရွေးထားသော ဂဏန်းများကို စာရင်းမှ ဖျက်မှာ သေချာပြီလား?",
+    toast_removed: "စာရင်းမှ ဖျက်ပြီးပါပြီ",
+    toast_updated: "ဂဏန်း ပြင်ဆင်ပြီးပါပြီ"
 },
 threed_detail: {
     header_title: "3D FLASH MODE",

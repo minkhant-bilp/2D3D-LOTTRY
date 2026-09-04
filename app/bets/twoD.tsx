@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Animated,
@@ -160,6 +161,61 @@ const CountdownTimer = React.memo(({ targetTime }: { targetTime: string }) => {
 });
 CountdownTimer.displayName = 'CountdownTimer';
 
+type BetPillProps = {
+    row: { id: string; number: string; amount: string };
+    isValid: boolean;
+    selectionMode: boolean;
+    isSelected: boolean;
+    disabled: boolean;
+    onPress: (id: string) => void;
+    onLongPress: (id: string) => void;
+    onRemove: (id: string) => void;
+};
+
+/**
+ * One staked number in the summary. Tap edits it, press-and-hold starts a
+ * multi-selection, and the trailing × drops it — the three things a player wants
+ * to do to a number they can see, without hunting for its card further down.
+ *
+ * Memoised: editing one amount must not re-render the other ninety-nine.
+ */
+const BetPill = React.memo(function BetPill({
+    row, isValid, selectionMode, isSelected, disabled, onPress, onLongPress, onRemove,
+}: BetPillProps) {
+    const tone = isSelected ? styles.pillSelected : isValid ? styles.pillValid : styles.pillInvalid;
+    const textColor = isSelected ? '#BFDBFE' : isValid ? '#10B981' : '#F59E0B';
+
+    return (
+        <Pressable
+            style={[styles.pill, tone, disabled && { opacity: 0.5 }]}
+            disabled={disabled}
+            delayLongPress={300}
+            onPress={() => onPress(row.id)}
+            onLongPress={() => onLongPress(row.id)}
+        >
+            {selectionMode && (
+                <MaterialIcons
+                    name={isSelected ? 'check-circle' : 'radio-button-unchecked'}
+                    size={18}
+                    color={isSelected ? '#3B82F6' : 'rgba(255,255,255,0.35)'}
+                />
+            )}
+
+            <Text style={[styles.pillNumber, { color: textColor }]}>{row.number}</Text>
+            {row.amount !== '' && (
+                <Text style={[styles.pillAmount, { color: textColor }]}>· {row.amount}</Text>
+            )}
+
+            {!selectionMode && (
+                <Pressable hitSlop={10} disabled={disabled} style={styles.pillRemove} onPress={() => onRemove(row.id)}>
+                    <MaterialIcons name="close" size={15} color="rgba(255,255,255,0.45)" />
+                </Pressable>
+            )}
+        </Pressable>
+    );
+});
+BetPill.displayName = 'BetPill';
+
 export default function TwoDDetailScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -181,6 +237,8 @@ export default function TwoDDetailScreen() {
     const removeBetRow = useBetStore(state => state.removeBetRow);
     const clearBetRows = useBetStore(state => state.clearBetRows);
     const updateBetRow = useBetStore(state => state.updateBetRow);
+    const updateBetRowFields = useBetStore(state => state.updateBetRowFields);
+    const removeBetRows = useBetStore(state => state.removeBetRows);
 
     const validBetCount = betRows.filter((r: any) => r.number.length === 2 && Number(r.amount) >= 1).length;
     const validTotal = getValidAmountTotal();
@@ -193,6 +251,9 @@ export default function TwoDDetailScreen() {
             clearBetRows();
             setStep(2);
             setPin('');
+            setSelectionActive(false);
+            setRawSelected(new Set());
+            setEditingId(null);
         }, [])
     );
 
@@ -247,18 +308,132 @@ export default function TwoDDetailScreen() {
     const [modalDigit, setModalDigit] = useState('');
     const [modalError, setModalError] = useState<string | null>(null);
 
-    const showToast = (message: string) => {
+    // Selection lives here, not in useBetStore: picking numbers is a view
+    // concern, and nothing about it may be able to alter a bet.
+    const [selectionActive, setSelectionActive] = useState(false);
+    const [rawSelected, setRawSelected] = useState<Set<string>>(new Set());
+
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editNum, setEditNum] = useState('');
+    const [editAmt, setEditAmt] = useState('');
+    const [editError, setEditError] = useState<string | null>(null);
+
+    // Quick picks, paste, Clear All and the row cards below all mutate betRows
+    // while a selection may be open, so a selected id can stop existing under
+    // us. Pruned on read: the count stays honest without a second render pass.
+    const selectedIds = useMemo(() => {
+        if (rawSelected.size === 0) return rawSelected;
+        const live = new Set(betRows.map((r: any) => r.id));
+        const pruned = new Set([...rawSelected].filter(id => live.has(id)));
+        return pruned.size === rawSelected.size ? rawSelected : pruned;
+    }, [betRows, rawSelected]);
+
+    // Falls out of selection mode once nothing is selected — whether the player
+    // deselected the last pill or those rows were removed from elsewhere.
+    const selectionMode = selectionActive && selectedIds.size > 0;
+
+    // The rows that actually render as a pill.
+    const pillRowIds = useMemo(
+        () => betRows.filter((r: any) => r.number !== '').map((r: any) => r.id),
+        [betRows]
+    );
+    const allSelected = pillRowIds.length > 0 && selectedIds.size === pillRowIds.length;
+
+    // Stable so the pills' memo survives — they take a remove handler built on it.
+    const showToast = useCallback((message: string) => {
         setToastMessage(message);
         toastOpacity.setValue(1);
         Animated.sequence([
             Animated.delay(2000),
             Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true })
         ]).start();
-    };
+    }, [toastOpacity]);
 
     const showAlert = (type: 'success' | 'error' | 'warning', title: string, message: string, onConfirm?: () => void, showCancel = false) => {
         setCustomAlert({ visible: true, type, title, message, onConfirm, showCancel });
     };
+
+    // ── Summary pills ────────────────────────────────────────────────────────
+
+    const exitSelection = useCallback(() => {
+        setSelectionActive(false);
+        setRawSelected(new Set());
+    }, []);
+
+    const enterSelection = useCallback((id: string) => {
+        Haptics.selectionAsync();
+        setSelectionActive(true);
+        // Writing the pruned set back is what stops dead ids accumulating.
+        setRawSelected(selectedIds.has(id) ? selectedIds : new Set(selectedIds).add(id));
+    }, [selectedIds]);
+
+    const toggleSelect = useCallback((id: string) => {
+        Haptics.selectionAsync();
+        const next = new Set(selectedIds);
+        if (!next.delete(id)) next.add(id);
+        setRawSelected(next);
+    }, [selectedIds]);
+
+    const openEditor = useCallback((id: string) => {
+        const row = betRows.find((r: any) => r.id === id);
+        if (!row) return;
+        setEditingId(id);
+        setEditNum(row.number);
+        setEditAmt(row.amount);
+        setEditError(null);
+    }, [betRows]);
+
+    const handlePillPress = useCallback((id: string) => {
+        if (selectionMode) toggleSelect(id);
+        else openEditor(id);
+    }, [selectionMode, toggleSelect, openEditor]);
+
+    const handlePillRemove = useCallback((id: string) => {
+        removeBetRow(id);
+        showToast(t('twod_detail.toast_removed', 'စာရင်းမှ ဖျက်ပြီးပါပြီ') as string);
+    }, [removeBetRow, showToast, t]);
+
+    const deleteSelected = () => {
+        const ids = [...selectedIds];
+        if (ids.length === 0) return;
+        showAlert(
+            'warning',
+            t('twod_detail.confirm_delete_title', 'ဂဏန်းများ ဖျက်မည်') as string,
+            t('twod_detail.confirm_delete_msg', 'ရွေးထားသော ဂဏန်းများကို စာရင်းမှ ဖျက်မှာ သေချာပြီလား?') as string,
+            () => {
+                // One store write, addressed by id — every unselected row keeps
+                // its identity, amount and position.
+                removeBetRows(ids);
+                exitSelection();
+                showToast(t('twod_detail.toast_removed', 'စာရင်းမှ ဖျက်ပြီးပါပြီ') as string);
+            },
+            true
+        );
+    };
+
+    const saveEdit = () => {
+        if (!editingId) return;
+        if (editNum.length !== 2) {
+            return setEditError(t('twod_detail.err_exact_two', 'ဒဲ့ နှင့် R အတွက် ဂဏန်း (၂) လုံး အတိအကျ ထည့်ပါ။') as string);
+        }
+        const trimmed = editAmt.trim();
+        const amt = Number(trimmed);
+        if (!/^\d+$/.test(trimmed) || !Number.isInteger(amt) || amt < 1) {
+            return setEditError(t('twod_detail.err_invalid_amt', 'ကျေးဇူးပြု၍ လောင်းကြေးငွေပမာဏကို မှန်ကန်စွာ ထည့်ပါ။') as string);
+        }
+        updateBetRowFields(editingId, { number: editNum, amount: trimmed });
+        setEditingId(null);
+        showToast(t('twod_detail.toast_updated', 'ဂဏန်း ပြင်ဆင်ပြီးပါပြီ') as string);
+    };
+
+    const deleteEditing = () => {
+        if (!editingId) return;
+        removeBetRow(editingId);
+        setEditingId(null);
+        showToast(t('twod_detail.toast_removed', 'စာရင်းမှ ဖျက်ပြီးပါပြီ') as string);
+    };
+
+    const editingRow = editingId != null ? betRows.find((r: any) => r.id === editingId) : null;
 
     const handleBack = () => {
         if (step === 3) {
@@ -516,22 +691,57 @@ export default function TwoDDetailScreen() {
                             <View style={styles.summaryCardInner}>
                                 <View style={styles.summaryHeader}>
                                     <Text style={styles.summaryTitle}>{t('twod_detail.lottery_numbers', 'ထီဂဏန်းများ') as string}</Text>
-                                    <View style={styles.summaryChips}>
-                                        {betRows.map((row: any, index: number) => {
-                                            if (!row.number) return null;
-                                            const amt = Number(row.amount);
-                                            const isValid = /^\d+$/.test(row.amount.trim()) && Number.isInteger(amt) && amt >= 1;
-                                            return (
-                                                <View key={`${row.id}-${index}`} style={[styles.chip, isValid ? styles.chipValid : styles.chipInvalid]}>
-                                                    <Text style={[styles.chipText, isValid ? styles.chipTextValid : styles.chipTextInvalid]}>
-                                                        {row.number}
-                                                        {row.amount !== '' && <Text style={styles.chipAmountText}> · {row.amount}</Text>}
-                                                    </Text>
-                                                </View>
-                                            );
-                                        })}
-                                    </View>
+                                    <Text style={styles.summaryCount}>{pillRowIds.length}</Text>
                                 </View>
+
+                                <View style={styles.pillsWrap}>
+                                    {betRows.map((row: any) => {
+                                        if (!row.number) return null;
+                                        const amt = Number(row.amount);
+                                        const isValid = /^\d+$/.test(row.amount.trim()) && Number.isInteger(amt) && amt >= 1;
+                                        return (
+                                            <BetPill
+                                                key={row.id}
+                                                row={row}
+                                                isValid={isValid}
+                                                selectionMode={selectionMode}
+                                                isSelected={selectedIds.has(row.id)}
+                                                disabled={isAllClosed}
+                                                onPress={handlePillPress}
+                                                onLongPress={enterSelection}
+                                                onRemove={handlePillRemove}
+                                            />
+                                        );
+                                    })}
+                                </View>
+
+                                {selectionMode ? (
+                                    <View style={styles.selectBar}>
+                                        <Text style={styles.selectCount}>
+                                            {selectedIds.size} {t('twod_detail.selected_suffix', 'ခု ရွေးထားသည်') as string}
+                                        </Text>
+                                        <View style={styles.selectActions}>
+                                            <TouchableOpacity
+                                                style={[styles.selectBtn, allSelected && { opacity: 0.4 }]}
+                                                disabled={allSelected}
+                                                onPress={() => setRawSelected(new Set(pillRowIds))}
+                                            >
+                                                <Text style={styles.selectBtnText}>{t('twod_detail.select_all', 'အားလုံး ရွေးမည်') as string}</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity style={styles.selectDeleteBtn} onPress={deleteSelected}>
+                                                <MaterialIcons name="delete-outline" size={16} color="#F87171" />
+                                                <Text style={styles.selectDeleteText}>
+                                                    {t('twod_detail.delete_selected', 'ဖျက်မည်') as string} ({selectedIds.size})
+                                                </Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity style={styles.selectBtn} onPress={exitSelection}>
+                                                <Text style={styles.selectBtnText}>{t('twod_detail.pill_cancel', 'မလုပ်တော့ပါ') as string}</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                ) : pillRowIds.length > 0 && (
+                                    <Text style={styles.pillHint}>{t('twod_detail.pill_hint', 'ပြင်ရန် ဂဏန်းကို နှိပ်ပါ။ အများကြီး ရွေးရန် ဖိထားပါ။') as string}</Text>
+                                )}
                             </View>
                         </View>
 
@@ -566,7 +776,7 @@ export default function TwoDDetailScreen() {
                             </Pressable>
                         </View>
 
-                        <TouchableOpacity activeOpacity={0.8} style={[styles.nextBtnOuter, (validBetCount === 0 || isAllClosed) && { opacity: 0.4 }]} disabled={validBetCount === 0 || isAllClosed} onPress={() => setStep(3)}>
+                        <TouchableOpacity activeOpacity={0.8} style={[styles.nextBtnOuter, (validBetCount === 0 || isAllClosed) && { opacity: 0.4 }]} disabled={validBetCount === 0 || isAllClosed} onPress={() => { exitSelection(); setStep(3); }}>
                             <LinearGradient colors={['#34D399', '#10B981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.nextBtnInner}>
                                 <Text style={styles.nextBtnText}>{t('twod_detail.btn_next', 'ရှေ့သို့') as string}</Text>
                                 <View style={styles.nextIconWrapper}><MaterialIcons name="arrow-forward" size={20} color="#042F21" /></View>
@@ -721,6 +931,68 @@ export default function TwoDDetailScreen() {
                 </Modal>
             )}
 
+            {editingRow && (
+                <Modal transparent visible animationType="fade" onRequestClose={() => setEditingId(null)}>
+                    <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>{t('twod_detail.pill_edit_title', 'ဂဏန်း ပြင်မည်') as string}</Text>
+                                <Pressable onPress={() => setEditingId(null)}>
+                                    <MaterialIcons name="close" size={24} color="rgba(255,255,255,0.4)" />
+                                </Pressable>
+                            </View>
+
+                            <View style={{ marginBottom: 16 }}>
+                                <Text style={styles.label}>{t('twod_detail.number_label', 'ဂဏန်း (00-99)') as string}</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    keyboardType="number-pad"
+                                    maxLength={2}
+                                    value={editNum}
+                                    onChangeText={v => { setEditError(null); setEditNum(v.replace(/\D/g, '')); }}
+                                />
+                            </View>
+
+                            <View style={{ marginBottom: 16 }}>
+                                <Text style={styles.label}>{t('twod_detail.amount_mmk', 'ငွေပမာဏ (MMK)') as string}</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    keyboardType="number-pad"
+                                    value={editAmt}
+                                    onChangeText={v => { setEditError(null); setEditAmt(v.replace(/\D/g, '')); }}
+                                />
+                            </View>
+
+                            <View style={styles.editWinRow}>
+                                <Text style={styles.potentialWinLabel}>{t('twod_detail.potential_win', 'POTENTIAL WIN') as string}</Text>
+                                <Text style={styles.potentialWinValue}>
+                                    {editNum.length === 2 && /^\d+$/.test(editAmt.trim()) && Number(editAmt) >= 1
+                                        ? `x ${(Number(editAmt) * 80).toLocaleString()}`
+                                        : '—'}
+                                </Text>
+                            </View>
+
+                            {editError && <Text style={styles.errorText}>{editError}</Text>}
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity style={styles.editDeleteBtn} onPress={deleteEditing}>
+                                    <MaterialIcons name="delete-outline" size={16} color="#F87171" />
+                                    <Text style={styles.editDeleteText}>{t('twod_detail.pill_delete', 'ဖျက်မည်') as string}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.modalCancel} onPress={() => setEditingId(null)}>
+                                    <Text style={styles.modalCancelText}>{t('twod_detail.pill_cancel', 'မလုပ်တော့ပါ') as string}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.modalConfirm} onPress={saveEdit}>
+                                    <LinearGradient colors={['#00e676', '#2ac48b']} style={styles.modalConfirmGrad}>
+                                        <Text style={styles.modalConfirmText}>{t('twod_detail.pill_save', 'သိမ်းမည်') as string}</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </KeyboardAvoidingView>
+                </Modal>
+            )}
+
             <Modal transparent visible={customAlert.visible} animationType="fade">
                 <View style={styles.alertOverlay}>
                     <View style={styles.alertBox}>
@@ -828,6 +1100,31 @@ const styles = StyleSheet.create({
     chipTextValid: { color: '#10B981', fontWeight: 'bold' },
     chipTextInvalid: { color: '#F59E0B', fontWeight: 'bold' },
     chipAmountText: { fontWeight: 'normal', opacity: 0.6 },
+
+    // Step 2's editable pills. Deliberately separate from `chip*`, which step 3
+    // keeps for its compact read-only summary.
+    summaryCount: { color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: 'bold' },
+    pillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    pill: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 14, paddingRight: 8, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+    pillValid: { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.25)' },
+    pillInvalid: { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.25)' },
+    pillSelected: { backgroundColor: 'rgba(59, 130, 246, 0.16)', borderColor: '#3B82F6' },
+    pillNumber: { fontSize: 17, fontWeight: 'bold', letterSpacing: 0.5 },
+    pillAmount: { fontSize: 13, fontWeight: '600', opacity: 0.65 },
+    pillRemove: { paddingHorizontal: 4, paddingVertical: 4, marginLeft: 2 },
+    pillHint: { color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: 12, lineHeight: 16 },
+
+    selectBar: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
+    selectCount: { color: '#BFDBFE', fontSize: 12, fontWeight: 'bold', marginBottom: 10 },
+    selectActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    selectBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' },
+    selectBtnText: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 'bold' },
+    selectDeleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(248, 113, 113, 0.35)', backgroundColor: 'rgba(248, 113, 113, 0.1)' },
+    selectDeleteText: { color: '#F87171', fontSize: 12, fontWeight: 'bold' },
+
+    editWinRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    editDeleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(248, 113, 113, 0.35)', backgroundColor: 'rgba(248, 113, 113, 0.1)' },
+    editDeleteText: { color: '#F87171', fontSize: 13, fontWeight: 'bold' },
 
     divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 16 },
     rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

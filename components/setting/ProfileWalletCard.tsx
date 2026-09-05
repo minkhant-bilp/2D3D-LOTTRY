@@ -62,8 +62,6 @@ export default function ProfileWalletCard() {
         }
     };
 
-    const isVip = user?.role === 'vip';
-
     return (
         <LinearGradient
             colors={['rgba(11, 19, 43, 0.94)', 'rgba(7, 15, 35, 0.88)']}
@@ -110,11 +108,8 @@ export default function ProfileWalletCard() {
                         </Pressable>
 
                         {user?.role && (
-                            <View style={[styles.userBadge, isVip && styles.vipBadge]}>
-                                {isVip && (
-                                    <MaterialIcons name="workspace-premium" size={12} color="#FBBF24" style={{ marginRight: 4 }} />
-                                )}
-                                <Text style={[styles.userText, isVip && styles.vipText]}>
+                            <View style={styles.userBadge}>
+                                <Text style={styles.userText}>
                                     {String(user.role).toUpperCase()}
                                 </Text>
                             </View>
@@ -152,8 +147,6 @@ const styles = StyleSheet.create({
     idText: { fontSize: 12, fontWeight: 'bold', color: '#00e676', letterSpacing: 0.5 },
     userBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(147, 197, 253, 0.25)', backgroundColor: 'rgba(147, 197, 253, 0.1)' },
     userText: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: '#93c5fd' },
-    vipBadge: { borderColor: 'rgba(251, 191, 36, 0.3)', backgroundColor: 'rgba(251, 191, 36, 0.1)' },
-    vipText: { color: '#FBBF24' },
     balanceBadge: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.3)', backgroundColor: 'transparent', marginTop: 2 },
     balanceText: { fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5, color: '#00e676' },
 });

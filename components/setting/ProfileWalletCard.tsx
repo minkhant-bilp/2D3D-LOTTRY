@@ -108,8 +108,8 @@ export default function ProfileWalletCard() {
                         </Pressable>
 
                         {user?.role && (
-                            <View style={styles.userBadge}>
-                                <Text style={styles.userText}>
+                            <View style={[styles.userBadge, user.role === 'agent' && styles.agentBadge]}>
+                                <Text style={[styles.userText, user.role === 'agent' && styles.agentText]}>
                                     {String(user.role).toUpperCase()}
                                 </Text>
                             </View>
@@ -147,6 +147,8 @@ const styles = StyleSheet.create({
     idText: { fontSize: 12, fontWeight: 'bold', color: '#00e676', letterSpacing: 0.5 },
     userBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(147, 197, 253, 0.25)', backgroundColor: 'rgba(147, 197, 253, 0.1)' },
     userText: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: '#93c5fd' },
+    agentBadge: { borderColor: 'rgba(52, 211, 153, 0.3)', backgroundColor: 'rgba(52, 211, 153, 0.1)' },
+    agentText: { color: '#34D399' },
     balanceBadge: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.3)', backgroundColor: 'transparent', marginTop: 2 },
     balanceText: { fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5, color: '#00e676' },
 });

@@ -6,6 +6,8 @@ interface User {
     id: number;
     username: string | null;
     email: string;
+    /** Null on accounts created before phone became a registration field. */
+    phone: string | null;
     role: string | null;
 }
 

@@ -55,7 +55,6 @@ export const logoutAllFcmTokensAPI = () =>
 export const createBetAPI = (payload: { 
     bet_type: string; 
     currency: string; 
-    security_pin: string; 
     target_opentime?: string; 
     bet_numbers: { number: string; amount: number }[] 
 }) => 

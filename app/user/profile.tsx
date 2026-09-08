@@ -87,6 +87,14 @@ export default function UserProfilePage() {
 
                     <View style={styles.infoRow}>
                         <View style={styles.infoLabel}>
+                            <MaterialIcons name="phone" size={16} color="#9CA3AF" />
+                            <Text style={styles.labelText}>ဖုန်းနံပါတ်</Text>
+                        </View>
+                        <Text style={styles.valueText}>{user.phone ?? '—'}</Text>
+                    </View>
+
+                    <View style={styles.infoRow}>
+                        <View style={styles.infoLabel}>
                             <View style={{ width: 16 }} />
                             <Text style={styles.labelText}>အဆင့်</Text>
                         </View>

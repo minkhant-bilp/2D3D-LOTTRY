@@ -25,6 +25,7 @@ import { registerDeviceToken } from '../utils/registerDeviceToken';
 const initialForm = {
     username: '',
     email: '',
+    phone: '',
     password: '',
     password_confirmation: '',
     pin: '',
@@ -51,6 +52,7 @@ export default function RegisterPage() {
             await registerUser({
                 username: form.username.trim(),
                 email: form.email.trim(),
+                phone: form.phone.trim(),
                 password: form.password,
                 password_confirmation: form.password_confirmation,
                 pin: form.pin,
@@ -72,8 +74,13 @@ export default function RegisterPage() {
         Keyboard.dismiss();
         setErrorMessage(null);
 
-        if (!form.username || !form.email || !form.password) {
+        if (!form.username || !form.email || !form.phone || !form.password) {
             setErrorMessage(t('auth.register_error_empty', 'ကျေးဇူးပြု၍ အချက်အလက်များကို အပြည့်အစုံထည့်ပါ။') as string);
+            return;
+        }
+
+        if (!/^\+?[0-9]{7,20}$/.test(form.phone.trim())) {
+            setErrorMessage(t('auth.register_error_phone', 'ဖုန်းနံပါတ် မှန်ကန်စွာ ထည့်ပါ။ (ဂဏန်းများသာ)') as string);
             return;
         }
 
@@ -159,6 +166,23 @@ export default function RegisterPage() {
                                     editable={!isSubmitting}
                                     placeholderTextColor="#8a9bb3"
                                     placeholder={t('auth.email_placeholder', 'user@example.com') as string}
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.fieldContainer}>
+                            <Text style={styles.label}>{t('auth.phone_label', 'Phone Number') as string}</Text>
+                            <View style={[styles.inputWrapper, errorMessage && styles.inputErrorBorder]}>
+                                <TextInput
+                                    style={styles.input}
+                                    value={form.phone}
+                                    onChangeText={(val) => updateField('phone', val)}
+                                    keyboardType="phone-pad"
+                                    autoCapitalize="none"
+                                    editable={!isSubmitting}
+                                    maxLength={21}
+                                    placeholderTextColor="#8a9bb3"
+                                    placeholder={t('auth.phone_placeholder', '09xxxxxxxxx') as string}
                                 />
                             </View>
                         </View>

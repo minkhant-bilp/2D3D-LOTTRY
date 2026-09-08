@@ -229,8 +229,6 @@ export default function TwoDDetailScreen() {
 
     const step = useBetStore(state => state.step);
     const setStep = useBetStore(state => state.setStep);
-    const pin = useBetStore(state => state.pin);
-    const setPin = useBetStore(state => state.setPin);
     const betRows = useBetStore(state => state.betRows);
     const getValidAmountTotal = useBetStore(state => state.getValidAmountTotal);
     const addMultipleBets = useBetStore(state => state.addMultipleBets);
@@ -250,7 +248,6 @@ export default function TwoDDetailScreen() {
         useCallback(() => {
             clearBetRows();
             setStep(2);
-            setPin('');
             setSelectionActive(false);
             setRawSelected(new Set());
             setEditingId(null);
@@ -518,7 +515,6 @@ export default function TwoDDetailScreen() {
         onSuccess: () => {
             showAlert('success', t('twod_detail.alert_success', 'အောင်မြင်ပါသည်') as string, t('twod_detail.alert_success_msg', 'လောင်းကြေး အောင်မြင်စွာ တင်သွင်းပြီးပါပြီ။') as string, () => {
                 clearBetRows();
-                setPin('');
                 refreshWallet();
                 router.push('/results/twoDresult');
             });
@@ -530,7 +526,6 @@ export default function TwoDDetailScreen() {
 
     const submitBet = () => {
         if (isInsufficient) return showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, t('twod_detail.alert_insufficient', 'လက်ကျန်ငွေ မလုံလောက်ပါ။') as string);
-        if (pin.length !== 6) return showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, t('twod_detail.alert_exact_six_pin', 'PIN ဂဏန်း (၆) လုံး အတိအကျ ထည့်ပါ။') as string);
         if (validBetCount === 0) return showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, t('twod_detail.alert_min_one_num', 'ဂဏန်း အနည်းဆုံး ၁ ခု ထည့်ပါ။') as string);
 
         const cleanRows = betRows.filter((r: any) => r.number.length === 2 && Number(r.amount) >= 1);
@@ -548,7 +543,6 @@ export default function TwoDDetailScreen() {
             currency: realCurrency,
             target_opentime: targetTime,
             bet_numbers: mergedBetNumbers,
-            security_pin: pin
         });
     };
 
@@ -828,13 +822,6 @@ export default function TwoDDetailScreen() {
                             </View>
                         </View>
 
-                        <View style={styles.summaryCardOuter}>
-                            <View style={[styles.summaryCardInner, { paddingVertical: 20 }]}>
-                                <Text style={[styles.summaryTitle, { marginBottom: 16 }]}>{t('twod_detail.security_pin', 'SECURITY PIN') as string}</Text>
-                                <TextInput style={styles.pinInput} keyboardType="number-pad" secureTextEntry maxLength={6} placeholder={t('twod_detail.pin_placeholder', 'ဂဏန်း ၆ လုံး ထည့်ပါ') as string} placeholderTextColor="rgba(255,255,255,0.3)" value={pin} onChangeText={(val) => setPin(val.replace(/\D/g, '').slice(0, 6))} />
-                            </View>
-                        </View>
-
                         {isInsufficient && (
                             <TouchableOpacity
                                 activeOpacity={0.8}
@@ -856,7 +843,7 @@ export default function TwoDDetailScreen() {
                                         <MaterialIcons name="arrow-back" size={20} color="#93C5FD" />
                                         <Text style={styles.stepBackText}>{t('twod_detail.btn_back', 'နောက်သို့') as string}</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.confirmBtn, (isInsufficient || pin.length !== 6 || mutation.isPending) && { opacity: 0.5 }]} disabled={isInsufficient || pin.length !== 6 || mutation.isPending} onPress={submitBet}>
+                                    <TouchableOpacity style={[styles.confirmBtn, (isInsufficient || mutation.isPending) && { opacity: 0.5 }]} disabled={isInsufficient || mutation.isPending} onPress={submitBet}>
                                         <LinearGradient colors={['#34D399', '#10B981']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.confirmBtnGradient}>
                                             {mutation.isPending ? <ActivityIndicator color="#042F21" /> : <><Text style={styles.confirmBtnText}>{t('twod_detail.btn_confirm_wager', 'လောင်းကြေး\nအတည်ပြုမည်') as string}</Text><MaterialIcons name="arrow-forward" size={20} color="#042F21" /></>}
                                         </LinearGradient>
@@ -1131,7 +1118,6 @@ const styles = StyleSheet.create({
     rowLabel: { color: '#9CA3AF', fontSize: 14 },
     rowValueWhite: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
     rowValueColored: { fontSize: 14, fontWeight: 'bold' },
-    pinInput: { backgroundColor: 'rgba(255, 255, 255, 0.05)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 12, padding: 16, color: '#FFF', fontSize: 16, letterSpacing: 4, textAlign: 'center' },
 
     topUpBtn: { width: '100%', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 230, 118, 0.35)', backgroundColor: 'rgba(0, 230, 118, 0.1)', paddingVertical: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
     topUpBtnText: { color: '#00e676', fontSize: 14, fontWeight: '600' },

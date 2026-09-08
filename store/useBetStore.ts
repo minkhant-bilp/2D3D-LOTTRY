@@ -6,7 +6,6 @@ interface BetState {
     step: number;
     targetOpenTime: string;
     betRows: BetNumberRow[];
-    pin: string;
     walletBalance: number;
     isTwoDType: boolean;
     currency: string;
@@ -20,7 +19,6 @@ interface BetState {
     removeBetRows: (ids: string[]) => void;
     clearBetRows: () => void;
     setBetRowsBulk: (rows: BetNumberRow[]) => void;
-    setPin: (pin: string) => void;
     getValidAmountTotal: () => number;
     addMultipleBets: (newBets: { number: string; amount: string }[]) => void;
 }
@@ -32,7 +30,6 @@ export const useBetStore = create<BetState>((set, get) => ({
     step: 2,
     targetOpenTime: '12:01:00',
     betRows: [createEmptyRow()],
-    pin: '',
     walletBalance: 50000, 
     isTwoDType: true,
     currency: 'MMK',
@@ -73,7 +70,6 @@ export const useBetStore = create<BetState>((set, get) => ({
         return { betRows: filled.length > 0 ? [...filled, ...newRows] : newRows };
     }),
 
-    setPin: (pin) => set({ pin }),
 
     getValidAmountTotal: () => {
         const rows = get().betRows;

@@ -5,47 +5,37 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-/**
- * PLACEHOLDER HANDLES — replace with the real support accounts before release.
- * These are carried over from the web client, which never had real ones either.
- */
-export const SUPPORT_CHANNELS: {
-    id: string;
-    href: string;
+import { SUPPORT_CHANNELS, type SupportChannelId } from '@/constants/support';
+
+const CHANNEL_META: Record<SupportChannelId, {
     icon: keyof typeof MaterialIcons.glyphMap;
     titleKey: string;
     defaultTitle: string;
     descKey: string;
     defaultDesc: string;
-}[] = [
-    {
-        id: 'facebook',
-        href: 'https://facebook.com',
+}> = {
+    facebook: {
         icon: 'facebook',
         titleKey: 'help_center.fb_support',
         defaultTitle: 'Facebook Support',
         descKey: 'help_center.fb_support_desc',
         defaultDesc: 'Chat with live support agents',
     },
-    {
-        id: 'telegram',
-        href: 'https://t.me',
+    telegram: {
         icon: 'send',
         titleKey: 'help_center.telegram',
         defaultTitle: 'Telegram Line',
         descKey: 'help_center.telegram_desc',
         defaultDesc: 'Fast response for payment and ticket issues',
     },
-    {
-        id: 'viber',
-        href: 'viber://chat',
+    viber: {
         icon: 'phone-in-talk',
         titleKey: 'help_center.viber',
         defaultTitle: 'Viber Contact',
         descKey: 'help_center.viber_desc',
         defaultDesc: 'Voice and text support for urgent cases',
     },
-];
+};
 
 const FAQ = [
     { id: 'faq-1', qKey: 'help_center.faq_q1', qDefault: 'How long does a deposit approval take?', aKey: 'help_center.faq_a1', aDefault: 'Most requests are approved within a few minutes when transfer notes are complete.' },
@@ -86,22 +76,27 @@ export default function HelpCenterScreen() {
                     <Text style={styles.cardTitle}>{t('help_center.contact_channels', 'Contact channels') as string}</Text>
                     <Text style={styles.cardCaption}>{t('help_center.available_daily', 'Available daily') as string}</Text>
 
-                    {SUPPORT_CHANNELS.map((channel) => (
-                        <Pressable
-                            key={channel.id}
-                            style={({ pressed }) => [styles.channelRow, pressed && styles.channelRowPressed]}
-                            onPress={() => openChannel(channel.href)}
-                        >
-                            <View style={styles.channelIcon}>
-                                <MaterialIcons name={channel.icon} size={18} color="#51e1a5" />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.channelTitle}>{t(channel.titleKey, channel.defaultTitle) as string}</Text>
-                                <Text style={styles.channelDesc}>{t(channel.descKey, channel.defaultDesc) as string}</Text>
-                            </View>
-                            <MaterialIcons name="chevron-right" size={20} color="#5d6f8c" />
-                        </Pressable>
-                    ))}
+                    {SUPPORT_CHANNELS.map((channel) => {
+                        const meta = CHANNEL_META[channel.id];
+
+                        return (
+                            <Pressable
+                                key={channel.id}
+                                style={({ pressed }) => [styles.channelRow, pressed && styles.channelRowPressed]}
+                                onPress={() => openChannel(channel.href)}
+                            >
+                                <View style={styles.channelIcon}>
+                                    <MaterialIcons name={meta.icon} size={18} color="#51e1a5" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.channelTitle}>{t(meta.titleKey, meta.defaultTitle) as string}</Text>
+                                    <Text style={styles.channelValue}>{channel.value}</Text>
+                                    <Text style={styles.channelDesc}>{t(meta.descKey, meta.defaultDesc) as string}</Text>
+                                </View>
+                                <MaterialIcons name="chevron-right" size={20} color="#5d6f8c" />
+                            </Pressable>
+                        );
+                    })}
                 </View>
 
                 <View style={styles.card}>
@@ -138,6 +133,7 @@ const styles = StyleSheet.create({
     channelRowPressed: { backgroundColor: 'rgba(255,255,255,0.08)' },
     channelIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: 'rgba(0,230,118,0.12)' },
     channelTitle: { color: '#f7f9ff', fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
+    channelValue: { color: '#51e1a5', fontSize: 13, marginBottom: 2 },
     channelDesc: { color: '#8a9bb3', fontSize: 12, lineHeight: 17 },
     faqItem: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
     faqQuestion: { color: '#f7f9ff', fontSize: 13, fontWeight: 'bold', marginBottom: 4 },

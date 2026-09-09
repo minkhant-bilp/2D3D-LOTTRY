@@ -59,6 +59,7 @@ const en = {
     service: {
     title: "Service Center",
     notifications: "Notifications",
+    "help-center": "Help Center",
     about: "Privacy Policy"
 },
 setting_page: {
@@ -66,6 +67,8 @@ setting_page: {
     title: "Settings"
 },
 help_center: {
+    section_title: "Help Center",
+    copied: "Copied to clipboard",
     eyebrow: "Support",
     title: "Help Center",
     desc: "Reach support channels and browse quick answers for common issues.",

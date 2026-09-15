@@ -55,6 +55,7 @@ const th = {
     service: {
     title: "ศูนย์บริการ",
     notifications: "การแจ้งเตือน",
+    "help-center": "ศูนย์ช่วยเหลือ",
     about: "นโยบายความเป็นส่วนตัว"
 },
 setting_page: {
@@ -62,6 +63,8 @@ setting_page: {
     title: "การตั้งค่า"
 },
 help_center: {
+    section_title: "ศูนย์ช่วยเหลือ",
+    copied: "คัดลอกแล้ว",
     eyebrow: "ฝ่ายสนับสนุน",
     title: "ศูนย์ช่วยเหลือ",
     desc: "ติดต่อช่องทางสนับสนุนและดูคำตอบสำหรับปัญหาที่พบบ่อย",

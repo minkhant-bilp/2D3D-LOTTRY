@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTranslation } from 'react-i18next';
 
+import HelpCenterCard from '@/components/setting/HelpCenterCard';
 import MenuSettingsCard from '@/components/setting/MenuSettingsCard';
 import ProfileWalletCard from '@/components/setting/ProfileWalletCard';
 import ServiceCenterCard from '@/components/setting/ServiceCenterCard';
@@ -25,6 +26,7 @@ export default function SettingTabPage() {
             >
                 <ProfileWalletCard />
                 <MenuSettingsCard />
+                <HelpCenterCard />
                 <ServiceCenterCard />
             </ScrollView>
         </View>

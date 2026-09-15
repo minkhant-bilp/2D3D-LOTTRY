@@ -24,7 +24,9 @@ import { useTranslation } from 'react-i18next';
 
 import { createBetAPI } from '../../api/main';
 import { useAppStore } from '../../store/useAppStore';
+import { UnavailableNumbersList } from '../../components/bets/UnavailableNumbersList';
 import { useBetStore } from '../../store/useBetStore';
+import { isUnavailableRow, readUnavailableNumbers, type UnavailableNumber } from '../../utils/unavailableNumbers';
 
 const NAKKHAT_NUMS = ['07', '70', '18', '81', '24', '42', '35', '53', '69', '96'];
 const POWER_NUMS = ['05', '50', '16', '61', '27', '72', '38', '83', '49', '94'];
@@ -288,6 +290,7 @@ export default function TwoDDetailScreen() {
         message: string;
         onConfirm?: () => void;
         showCancel?: boolean;
+        unavailable?: UnavailableNumber[];
     }>({ visible: false, type: 'error', title: '', message: '' });
 
     const [fastNum, setFastNum] = useState('');
@@ -520,9 +523,32 @@ export default function TwoDDetailScreen() {
             });
         },
         onError: (err: any) => {
+            const unavailable = readUnavailableNumbers(err);
+            if (unavailable != null) {
+                setCustomAlert({
+                    visible: true,
+                    type: 'error',
+                    title: t('bet_unavailable.title', 'Some numbers are unavailable') as string,
+                    message: t('bet_unavailable.intro', 'Your bet was not placed. Remove these numbers and submit again.') as string,
+                    unavailable,
+                });
+                return;
+            }
             showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, err?.response?.data?.message || t('twod_detail.alert_fail_msg', 'လောင်းကြေးတင်ခြင်း မအောင်မြင်ပါ။') as string);
         }
     });
+
+    // Takes the numbers the backend refused off the slip. The player stays on
+    // Confirm to resubmit, unless nothing bettable is left.
+    const removeUnavailableNumbers = (unavailable: UnavailableNumber[]) => {
+        const dropIds = betRows.filter((r: any) => isUnavailableRow(r.number, unavailable, '2D')).map((r: any) => r.id);
+        const dropped = new Set(dropIds);
+        const hasBettableRow = betRows.some((r: any) => !dropped.has(r.id) && r.number.length === 2 && Number(r.amount) >= 1);
+
+        removeBetRows(dropIds);
+        setCustomAlert(prev => ({ ...prev, visible: false, unavailable: undefined }));
+        if (!hasBettableRow) setStep(2);
+    };
 
     const submitBet = () => {
         if (isInsufficient) return showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, t('twod_detail.alert_insufficient', 'လက်ကျန်ငွေ မလုံလောက်ပါ။') as string);
@@ -995,24 +1021,39 @@ export default function TwoDDetailScreen() {
                             />
                         </View>
                         <Text style={styles.alertTitle}>{customAlert.title}</Text>
-                        <Text style={styles.alertMessage}>{customAlert.message}</Text>
+                        <Text style={[styles.alertMessage, customAlert.unavailable != null && { marginBottom: 16 }]}>{customAlert.message}</Text>
 
-                        <View style={styles.alertActions}>
-                            {customAlert.showCancel && (
-                                <TouchableOpacity style={styles.alertCancelBtn} onPress={() => setCustomAlert({ ...customAlert, visible: false })}>
-                                    <Text style={styles.alertCancelText}>{t('twod_detail.alert_cancel', 'မလုပ်ပါ') as string}</Text>
+                        {customAlert.unavailable != null && (
+                            <UnavailableNumbersList numbers={customAlert.unavailable} currency={realCurrency} />
+                        )}
+
+                        {customAlert.unavailable != null ? (
+                            <View style={styles.alertActions}>
+                                <TouchableOpacity style={styles.alertCancelBtn} onPress={() => setCustomAlert({ ...customAlert, visible: false, unavailable: undefined })}>
+                                    <Text style={styles.alertCancelText}>{t('bet_unavailable.close', 'Close') as string}</Text>
                                 </TouchableOpacity>
-                            )}
-                            <TouchableOpacity
-                                style={[styles.alertConfirmBtn, customAlert.type === 'error' && { backgroundColor: '#F87171' }]}
-                                onPress={() => {
-                                    setCustomAlert({ ...customAlert, visible: false });
-                                    if (customAlert.onConfirm) customAlert.onConfirm();
-                                }}
-                            >
-                                <Text style={styles.alertConfirmText}>{t('twod_detail.alert_ok', 'အိုကေ') as string}</Text>
-                            </TouchableOpacity>
-                        </View>
+                                <TouchableOpacity style={styles.alertConfirmBtn} onPress={() => removeUnavailableNumbers(customAlert.unavailable ?? [])}>
+                                    <Text style={styles.alertConfirmText}>{t('bet_unavailable.remove', 'Remove these numbers') as string}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View style={styles.alertActions}>
+                                {customAlert.showCancel && (
+                                    <TouchableOpacity style={styles.alertCancelBtn} onPress={() => setCustomAlert({ ...customAlert, visible: false })}>
+                                        <Text style={styles.alertCancelText}>{t('twod_detail.alert_cancel', 'မလုပ်ပါ') as string}</Text>
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity
+                                    style={[styles.alertConfirmBtn, customAlert.type === 'error' && { backgroundColor: '#F87171' }]}
+                                    onPress={() => {
+                                        setCustomAlert({ ...customAlert, visible: false });
+                                        if (customAlert.onConfirm) customAlert.onConfirm();
+                                    }}
+                                >
+                                    <Text style={styles.alertConfirmText}>{t('twod_detail.alert_ok', 'အိုကေ') as string}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                 </View>
             </Modal>

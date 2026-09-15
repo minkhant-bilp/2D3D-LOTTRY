@@ -131,6 +131,16 @@ finance: {
     "withdrawal-history_label": "ถอนเงิน",
     "withdrawal-history_caption": "ดูประวัติการถอนเงิน"
 },
+bet_unavailable: {
+    title: "บางหมายเลขไม่สามารถแทงได้",
+    intro: "ยังไม่ได้วางเดิมพัน กรุณาลบหมายเลขเหล่านี้แล้วส่งอีกครั้ง",
+    closed: "ปิดรับ (อั้น)",
+    limit: "ถึงยอดขายสูงสุดแล้ว",
+    remaining: "เหลือ {{amount}}",
+    sold_out: "เต็มแล้ว",
+    remove: "ลบหมายเลขเหล่านี้",
+    close: "ปิด"
+},
 twod_detail: {
     header_title: "2D FLASH MODE",
     main_title: "วางเดิมพัน",

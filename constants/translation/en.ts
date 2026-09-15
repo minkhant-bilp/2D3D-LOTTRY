@@ -135,6 +135,16 @@ finance: {
     "withdrawal-history_label": "Withdrawal",
     "withdrawal-history_caption": "View past payouts"
 },
+bet_unavailable: {
+    title: "Some numbers are unavailable",
+    intro: "Your bet was not placed. Remove these numbers and submit again.",
+    closed: "Break (closed)",
+    limit: "Sales limit reached",
+    remaining: "{{amount}} left",
+    sold_out: "sold out",
+    remove: "Remove these numbers",
+    close: "Close"
+},
 twod_detail: {
     header_title: "2D FLASH MODE",
     main_title: "Place Bet",

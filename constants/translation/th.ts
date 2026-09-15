@@ -27,7 +27,6 @@ const th = {
     username_placeholder: "เช่น aungkoko",
     email_placeholder: "user@example.com",
     phone_label: "หมายเลขโทรศัพท์",
-    phone_placeholder: "09xxxxxxxxx",
     password_placeholder: "อย่างน้อย 8 ตัวอักษร",
     confirm_password_label: "ยืนยันรหัสผ่าน",
     confirm_password_placeholder: "ป้อนรหัสผ่านอีกครั้ง",
@@ -40,7 +39,8 @@ const th = {
     signin_link: "เข้าสู่ระบบ",
     register_error_empty: "กรุณากรอกข้อมูลให้ครบถ้วน",
     register_error_password_mismatch: "รหัสผ่านไม่ตรงกัน",
-    register_error_phone: "กรุณากรอกหมายเลขโทรศัพท์ที่ถูกต้อง (ตัวเลขเท่านั้น)",
+    register_error_phone_mm: "กรุณากรอกหมายเลขมือถือเมียนมาที่ถูกต้อง (09 ตามด้วยตัวเลข 7–9 หลัก)",
+    register_error_phone_th: "กรุณากรอกหมายเลขมือถือไทยที่ถูกต้อง (06, 08 หรือ 09 ตามด้วยตัวเลข 8 หลัก)",
     register_error_pin_length: "PIN ความปลอดภัยต้องมี 6 หลักพอดี",
     register_error_pin_mismatch: "PIN ความปลอดภัยไม่ตรงกัน",
     register_error_failed: "การลงทะเบียนบัญชีล้มเหลว"

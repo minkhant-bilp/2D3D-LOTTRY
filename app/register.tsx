@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 
 import { registerUser } from '../api/auth';
 
+import { PHONE_COUNTRIES, PHONE_COUNTRY_CODES, type PhoneCountry, isValidPhone, sanitizeLocalPhone, toE164 } from '../utils/phone';
 import { registerDeviceToken } from '../utils/registerDeviceToken';
 
 const initialForm = {
@@ -39,6 +40,7 @@ export default function RegisterPage() {
     const { t } = useTranslation();
 
     const [form, setForm] = useState(initialForm);
+    const [phoneCountry, setPhoneCountry] = useState<PhoneCountry>('MM');
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -52,7 +54,7 @@ export default function RegisterPage() {
             await registerUser({
                 username: form.username.trim(),
                 email: form.email.trim(),
-                phone: form.phone.trim(),
+                phone: toE164(phoneCountry, form.phone),
                 password: form.password,
                 password_confirmation: form.password_confirmation,
                 pin: form.pin,
@@ -79,8 +81,12 @@ export default function RegisterPage() {
             return;
         }
 
-        if (!/^\+?[0-9]{7,20}$/.test(form.phone.trim())) {
-            setErrorMessage(t('auth.register_error_phone', 'ဖုန်းနံပါတ် မှန်ကန်စွာ ထည့်ပါ။ (ဂဏန်းများသာ)') as string);
+        if (!isValidPhone(phoneCountry, form.phone)) {
+            setErrorMessage(
+                phoneCountry === 'TH'
+                    ? (t('auth.register_error_phone_th', 'Enter a valid Thai mobile number (06, 08 or 09 followed by 8 digits).') as string)
+                    : (t('auth.register_error_phone_mm', 'မြန်မာ ဖုန်းနံပါတ် မှန်ကန်စွာ ထည့်ပါ (09 နောက်တွင် ဂဏန်း ၇–၉ လုံး)။') as string)
+            );
             return;
         }
 
@@ -104,6 +110,12 @@ export default function RegisterPage() {
 
     const updateField = (field: keyof typeof initialForm, value: string) => {
         setForm(prev => ({ ...prev, [field]: value }));
+        if (errorMessage) setErrorMessage(null);
+    };
+
+    const selectPhoneCountry = (country: PhoneCountry) => {
+        setPhoneCountry(country);
+        setForm(prev => ({ ...prev, phone: sanitizeLocalPhone(country, prev.phone) }));
         if (errorMessage) setErrorMessage(null);
     };
 
@@ -173,16 +185,35 @@ export default function RegisterPage() {
                         <View style={styles.fieldContainer}>
                             <Text style={styles.label}>{t('auth.phone_label', 'Phone Number') as string}</Text>
                             <View style={[styles.inputWrapper, errorMessage && styles.inputErrorBorder]}>
+                                <View style={styles.countryCodeGroup}>
+                                    {PHONE_COUNTRY_CODES.map((code) => {
+                                        const selected = code === phoneCountry;
+                                        return (
+                                            <Pressable
+                                                key={code}
+                                                onPress={() => selectPhoneCountry(code)}
+                                                disabled={isSubmitting}
+                                                accessibilityRole="radio"
+                                                accessibilityState={{ selected }}
+                                                style={[styles.countryCodeChip, selected && styles.countryCodeChipSelected]}
+                                            >
+                                                <Text style={[styles.countryCodeText, selected && styles.countryCodeTextSelected]}>
+                                                    {PHONE_COUNTRIES[code].dial}
+                                                </Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
                                 <TextInput
                                     style={styles.input}
                                     value={form.phone}
-                                    onChangeText={(val) => updateField('phone', val)}
-                                    keyboardType="phone-pad"
+                                    onChangeText={(val) => updateField('phone', sanitizeLocalPhone(phoneCountry, val))}
+                                    keyboardType="number-pad"
                                     autoCapitalize="none"
                                     editable={!isSubmitting}
-                                    maxLength={21}
+                                    maxLength={PHONE_COUNTRIES[phoneCountry].maxLocalLength}
                                     placeholderTextColor="#8a9bb3"
-                                    placeholder={t('auth.phone_placeholder', '09xxxxxxxxx') as string}
+                                    placeholder={PHONE_COUNTRIES[phoneCountry].placeholder}
                                 />
                             </View>
                         </View>
@@ -311,6 +342,11 @@ const styles = StyleSheet.create({
     inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(5, 10, 31, 0.55)', borderWidth: 1, borderColor: '#1E293B', borderRadius: 12, height: 50 },
     inputErrorBorder: { borderColor: 'rgba(255, 77, 77, 0.45)' },
     input: { flex: 1, height: '100%', paddingHorizontal: 16, color: '#FFFFFF', fontSize: 15 },
+    countryCodeGroup: { flexDirection: 'row', height: '100%', alignItems: 'center', paddingLeft: 6, gap: 4, borderRightWidth: 1, borderRightColor: '#1E293B', paddingRight: 6 },
+    countryCodeChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+    countryCodeChipSelected: { backgroundColor: 'rgba(0, 230, 118, 0.16)' },
+    countryCodeText: { color: '#8a9bb3', fontSize: 14, fontWeight: '600' },
+    countryCodeTextSelected: { color: '#00E676' },
     passwordInput: { flex: 1, height: '100%', paddingHorizontal: 16, color: '#FFFFFF', fontSize: 15 },
     eyeButton: { height: '100%', paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center' },
     errorContainer: { backgroundColor: 'rgba(255, 77, 77, 0.1)', borderColor: 'rgba(255, 77, 77, 0.45)', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 },

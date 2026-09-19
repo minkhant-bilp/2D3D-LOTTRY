@@ -28,13 +28,6 @@ const CHANNEL_META: Record<SupportChannelId, {
         descKey: 'help_center.telegram_desc',
         defaultDesc: 'Fast response for payment and ticket issues',
     },
-    viber: {
-        icon: 'phone-in-talk',
-        titleKey: 'help_center.viber',
-        defaultTitle: 'Viber Contact',
-        descKey: 'help_center.viber_desc',
-        defaultDesc: 'Voice and text support for urgent cases',
-    },
 };
 
 const FAQ = [
@@ -51,7 +44,7 @@ export default function HelpCenterScreen() {
         try {
             await Linking.openURL(href);
         } catch (error) {
-            // Viber deep links fail when the app isn't installed — not worth an alert.
+            // Deep links fail when the target app isn't installed — not worth an alert.
             console.warn('[support] could not open channel', href, error);
         }
     };

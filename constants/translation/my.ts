@@ -135,6 +135,16 @@ finance: {
     "withdrawal-history_label": "ငွေထုတ်မည်",
     "withdrawal-history_caption": "ယခင်ငွေထုတ်မှတ်တမ်းများ"
 },
+bet_unavailable: {
+    title: "အချို့ဂဏန်းများ ထိုးမရနိုင်ပါ",
+    intro: "လောင်းကြေး မတင်ရသေးပါ။ အောက်ပါဂဏန်းများကို ဖယ်ရှားပြီး ပြန်တင်ပါ။",
+    closed: "ဘရိတ် (ပိတ်ထားသည်)",
+    limit: "အရောင်းကန့်သတ်ချက် ပြည့်သွားပြီ",
+    remaining: "{{amount}} ကျန်",
+    sold_out: "ကုန်သွားပြီ",
+    remove: "ဤဂဏန်းများကို ဖယ်ရှားမည်",
+    close: "ပိတ်မည်"
+},
 twod_detail: {
     header_title: "2D FLASH MODE",
     main_title: "လောင်းကြေး ထားမည်",

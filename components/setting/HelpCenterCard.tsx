@@ -7,18 +7,16 @@ import { useTranslation } from 'react-i18next';
 
 import { SUPPORT_CHANNELS, type SupportChannelId } from '@/constants/support';
 
-// MaterialIcons carries no Telegram/Viber brand glyph, so these are the closest
-// generic stand-ins — the same ones the Help Center screen already uses.
+// MaterialIcons carries no Telegram brand glyph, so that one is the closest
+// generic stand-in — the same one the Help Center screen already uses.
 const CHANNEL_ICON: Record<SupportChannelId, keyof typeof MaterialIcons.glyphMap> = {
     facebook: 'facebook',
     telegram: 'send',
-    viber: 'phone-in-talk',
 };
 
 const CHANNEL_LABEL: Record<SupportChannelId, { key: string; fallback: string }> = {
     facebook: { key: 'help_center.fb_support', fallback: 'Facebook Support' },
     telegram: { key: 'help_center.telegram', fallback: 'Telegram Line' },
-    viber: { key: 'help_center.viber', fallback: 'Viber Contact' },
 };
 
 export default function HelpCenterCard() {
@@ -36,7 +34,7 @@ export default function HelpCenterCard() {
         try {
             await Linking.openURL(href);
         } catch (error) {
-            // Viber deep links fail when the app isn't installed — not worth an alert.
+            // Deep links fail when the target app isn't installed — not worth an alert.
             console.warn('[support] could not open channel', href, error);
         }
     };

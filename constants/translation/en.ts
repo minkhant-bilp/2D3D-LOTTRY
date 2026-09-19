@@ -80,8 +80,6 @@ help_center: {
     fb_support_desc: "Chat with live support agents",
     telegram: "Telegram Line",
     telegram_desc: "Fast response for payment and ticket issues",
-    viber: "Viber Contact",
-    viber_desc: "Voice and text support for urgent cases",
     faq_q1: "How long does a deposit approval take?",
     faq_a1: "Most requests are approved within a few minutes when transfer notes are complete.",
     faq_q2: "Can I edit a number slip after submit?",

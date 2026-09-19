@@ -9,12 +9,12 @@ export type SupportChannel = {
 };
 
 /**
- * PLACEHOLDER HANDLES — replace with the real support accounts before release.
- * This is the single source of truth for both the Settings card and the
- * Help Center screen; nothing else should hardcode a support handle.
+ * The single source of truth for both the Settings card and the Help Center
+ * screen; nothing else should hardcode a support handle.
+ * NOTE: the viber number is still a placeholder.
  */
 export const SUPPORT_CHANNELS: SupportChannel[] = [
-    { id: 'facebook', value: 'fb.com/zarmani108', href: 'https://facebook.com/zarmani108' },
-    { id: 'telegram', value: '@zarmani108_support', href: 'https://t.me/zarmani108_support' },
+    { id: 'facebook', value: 'fb.com/Zarmani168', href: 'https://www.facebook.com/Zarmani168' },
+    { id: 'telegram', value: '@Zarmani108S', href: 'https://t.me/Zarmani108S' },
     { id: 'viber', value: '09-123-456-789', href: 'viber://chat?number=%2B959123456789' },
 ];

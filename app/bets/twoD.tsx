@@ -61,10 +61,10 @@ const FIXED_SETS: Partial<Record<BulkPick, string[]>> = { apu: DOUBLE_NUMS, powe
 
 function parsePastedBets(text: string, defaultAmount: string) {
     const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-    const results: { number: string; amount: string }[] = [];
+    const results: { number: string; amount: string; isReverse?: boolean }[] = [];
 
-    const add = (number: string, amount: string) => {
-        results.push({ number, amount });
+    const add = (number: string, amount: string, isReverse = false) => {
+        results.push({ number, amount, isReverse });
     };
 
     for (const line of lines) {
@@ -82,8 +82,8 @@ function parsePastedBets(text: string, defaultAmount: string) {
         const isRev = /\(r\)|r/i.test(line);
         const nums = [...new Set(line.replace(/\(r\)|r/gi, ' ').match(/\b\d{2}\b/g) || [])];
         nums.forEach(n => {
-            add(n, lineAmt);
-            if (isRev) { const r = reverseNum(n); if (r !== n) add(r, lineAmt); }
+            add(n, lineAmt, isRev);
+            if (isRev) { const r = reverseNum(n); if (r !== n) add(r, lineAmt, true); }
         });
     }
     return results;
@@ -456,8 +456,8 @@ export default function TwoDDetailScreen() {
         }
     };
 
-    const handleStake = (numbers: string[], amount: string) => {
-        const newBets = numbers.map(n => ({ number: n, amount }));
+    const handleStake = (numbers: string[], amount: string, isReverse = false) => {
+        const newBets = numbers.map(n => ({ number: n, amount, isReverse }));
         if (newBets.length > 0) {
             addMultipleBets(newBets);
             showToast(t('twod_detail.toast_added', 'စာရင်း ထည့်သွင်းပြီးပါပြီ') as string);
@@ -479,7 +479,10 @@ export default function TwoDDetailScreen() {
         const rev = reverseNum(fastNum);
         const nums = key === 'reverse' && rev !== fastNum ? [fastNum, rev] : [fastNum];
 
-        handleStake(nums, fastAmt);
+        // Both legs carry the flag: the backend only lets an R through a closed
+        // first digit when the whole pair arrives, so tagging one leg would block
+        // the bet the exemption exists to allow.
+        handleStake(nums, fastAmt, key === 'reverse');
         setFastNum('');
     };
 
@@ -541,7 +544,20 @@ export default function TwoDDetailScreen() {
     // Takes the numbers the backend refused off the slip. The player stays on
     // Confirm to resubmit, unless nothing bettable is left.
     const removeUnavailableNumbers = (unavailable: UnavailableNumber[]) => {
-        const dropIds = betRows.filter((r: any) => isUnavailableRow(r.number, unavailable, '2D')).map((r: any) => r.id);
+        const refused = betRows.filter((r: any) => isUnavailableRow(r.number, unavailable, '2D'));
+
+        // An R leg only clears a closed first digit while its mirror is on the
+        // slip at the same amount, so dropping one leg alone would just get the
+        // other refused next time. The pair goes together.
+        const orphanedMirrors = new Set(
+            refused
+                .filter((r: any) => r.isReverse === true && r.number.length === 2)
+                .map((r: any) => r.number[1] + r.number[0]),
+        );
+
+        const dropIds = betRows
+            .filter((r: any) => isUnavailableRow(r.number, unavailable, '2D') || (r.isReverse === true && orphanedMirrors.has(r.number)))
+            .map((r: any) => r.id);
         const dropped = new Set(dropIds);
         const hasBettableRow = betRows.some((r: any) => !dropped.has(r.id) && r.number.length === 2 && Number(r.amount) >= 1);
 
@@ -556,13 +572,21 @@ export default function TwoDDetailScreen() {
 
         const cleanRows = betRows.filter((r: any) => r.number.length === 2 && Number(r.amount) >= 1);
 
-        const mergedMap: Record<string, number> = {};
+        // Keyed on number AND origin: merging on the number alone erased the R
+        // flag and folded a reverse leg into a direct one, which the backend then
+        // refused on a closed first digit. The API accepts the same number twice.
+        const mergedMap: Record<string, { number: string; amount: number; origin: 'direct' | 'reverse' }> = {};
         cleanRows.forEach((r: any) => {
-            const num = r.number;
+            const origin: 'direct' | 'reverse' = r.isReverse === true ? 'reverse' : 'direct';
+            const key = `${r.number}|${origin}`;
             const amt = parseInt(r.amount) || 0;
-            mergedMap[num] = (mergedMap[num] || 0) + amt;
+            if (mergedMap[key]) {
+                mergedMap[key].amount += amt;
+                return;
+            }
+            mergedMap[key] = { number: r.number, amount: amt, origin };
         });
-        const mergedBetNumbers = Object.entries(mergedMap).map(([number, amount]) => ({ number, amount }));
+        const mergedBetNumbers = Object.values(mergedMap);
 
         mutation.mutate({
             bet_type: '2D',

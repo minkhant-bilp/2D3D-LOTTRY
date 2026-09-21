@@ -56,7 +56,8 @@ export const createBetAPI = (payload: {
     bet_type: string; 
     currency: string; 
     target_opentime?: string; 
-    bet_numbers: { number: string; amount: number }[] 
+    // 'reverse' on BOTH legs of an R pick; absent means a direct bet.
+    bet_numbers: { number: string; amount: number; origin?: 'direct' | 'reverse' }[] 
 }) => 
     axiosClient.post('/bets', payload).then(res => res.data);
 

@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 
-export type BetNumberRow = { id: string; number: string; amount: string };
+/**
+ * `isReverse` marks BOTH legs of an R pick. It only leaves the app as the bet
+ * payload's `origin` field, where the backend uses it to let an R bet through a
+ * closed first digit — but only when the mirror leg rides along at the same amount.
+ */
+export type BetNumberRow = { id: string; number: string; amount: string; isReverse?: boolean };
 
 interface BetState {
     step: number;
@@ -20,7 +25,7 @@ interface BetState {
     clearBetRows: () => void;
     setBetRowsBulk: (rows: BetNumberRow[]) => void;
     getValidAmountTotal: () => number;
-    addMultipleBets: (newBets: { number: string; amount: string }[]) => void;
+    addMultipleBets: (newBets: { number: string; amount: string; isReverse?: boolean }[]) => void;
 }
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -84,9 +89,10 @@ export const useBetStore = create<BetState>((set, get) => ({
     
     addMultipleBets: (newBets) => set((state) => {
         const rowsToAdd = newBets.map(bet => ({
-            id: Math.random().toString(36).substr(2, 9), 
+            id: Math.random().toString(36).substr(2, 9),
             number: bet.number,
-            amount: bet.amount
+            amount: bet.amount,
+            ...(bet.isReverse ? { isReverse: true } : {})
         }));
 
         const existingRows = state.betRows.length === 1 && state.betRows[0].number === '' && state.betRows[0].amount === ''

@@ -16,7 +16,7 @@ export function UnavailableNumbersList({ numbers, currency }: Props) {
     // Hot-digit blocks arrive as reason 'closed' so older builds still render
     // them; blockedBy is what lets this one say WHY and what to do instead.
     const closed = numbers.filter((entry) => entry.reason === 'closed' && entry.blockedBy == null);
-    const hotDigit = numbers.filter((entry) => entry.blockedBy === 'hot_first_digit');
+    const hotDigit = numbers.filter((entry) => entry.blockedBy === 'amount_mismatch');
     const unpairedReverse = numbers.filter((entry) => entry.blockedBy === 'reverse_unpaired');
     const limited = numbers.filter((entry) => entry.reason === 'limit_reached');
 
@@ -40,7 +40,7 @@ export function UnavailableNumbersList({ numbers, currency }: Props) {
             {hotDigit.length > 0 && (
                 <View style={styles.section}>
                     <Text style={[styles.sectionLabel, { color: '#F87171' }]}>
-                        {t('bet_unavailable.hot_digit', 'First digit closed') as string}
+                        {t('bet_unavailable.amount_mismatch', 'Amounts must match') as string}
                     </Text>
                     <View style={styles.chips}>
                         {hotDigit.map((entry) => (
@@ -51,8 +51,8 @@ export function UnavailableNumbersList({ numbers, currency }: Props) {
                     </View>
                     <Text style={styles.hint}>
                         {t(
-                            'bet_unavailable.hot_digit_hint',
-                            'Direct bets on this first digit are closed. Doubles and R pairs are still allowed.',
+                            'bet_unavailable.amount_mismatch_hint',
+                            'Every number with a closed digit must be bet at the same amount this draw. Change the amounts, then submit again.',
                         ) as string}
                     </Text>
                 </View>
@@ -61,7 +61,7 @@ export function UnavailableNumbersList({ numbers, currency }: Props) {
             {unpairedReverse.length > 0 && (
                 <View style={styles.section}>
                     <Text style={[styles.sectionLabel, { color: '#FBBF24' }]}>
-                        {t('bet_unavailable.reverse_unpaired', 'R needs both numbers') as string}
+                        {t('bet_unavailable.reverse_unpaired', 'Reverse missing') as string}
                     </Text>
                     <View style={styles.chips}>
                         {unpairedReverse.map((entry) => (
@@ -73,7 +73,7 @@ export function UnavailableNumbersList({ numbers, currency }: Props) {
                     <Text style={styles.hint}>
                         {t(
                             'bet_unavailable.reverse_unpaired_hint',
-                            'An R bet on a closed first digit needs its reverse on the same slip for the same amount.',
+                            'A number with a closed digit needs its reverse on the same slip for the same amount.',
                         ) as string}
                     </Text>
                 </View>

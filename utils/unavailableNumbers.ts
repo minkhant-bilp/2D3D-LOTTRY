@@ -10,7 +10,7 @@ export const BET_NUMBERS_UNAVAILABLE_CODE = 'BET_NUMBERS_UNAVAILABLE';
  * specific than "an admin shut this number". Additive and optional: an older
  * backend omits it and the entry still renders as a plain closed number.
  */
-export type UnavailableBlockedBy = 'hot_first_digit' | 'reverse_unpaired';
+export type UnavailableBlockedBy = 'amount_mismatch' | 'reverse_unpaired';
 
 export type UnavailableNumber = {
     /** Zero-padded: 2 digits for 2D, 3 for 3D. */
@@ -38,7 +38,7 @@ export function readUnavailableNumbers(error: any): UnavailableNumber[] | null {
 
     const numbers = data.unavailable_numbers.filter(isUnavailableNumber).map((entry: any) => {
         const blockedBy = entry.blocked_by;
-        return blockedBy === 'hot_first_digit' || blockedBy === 'reverse_unpaired'
+        return blockedBy === 'amount_mismatch' || blockedBy === 'reverse_unpaired'
             ? { ...entry, blockedBy }
             : entry;
     });

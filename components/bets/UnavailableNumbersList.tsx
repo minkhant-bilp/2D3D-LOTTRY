@@ -13,7 +13,11 @@ type Props = {
 export function UnavailableNumbersList({ numbers, currency }: Props) {
     const { t } = useTranslation();
 
-    const closed = numbers.filter((entry) => entry.reason === 'closed');
+    // Hot-digit blocks arrive as reason 'closed' so older builds still render
+    // them; blockedBy is what lets this one say WHY and what to do instead.
+    const closed = numbers.filter((entry) => entry.reason === 'closed' && entry.blockedBy == null);
+    const hotDigit = numbers.filter((entry) => entry.blockedBy === 'hot_first_digit');
+    const unpairedReverse = numbers.filter((entry) => entry.blockedBy === 'reverse_unpaired');
     const limited = numbers.filter((entry) => entry.reason === 'limit_reached');
 
     return (
@@ -30,6 +34,48 @@ export function UnavailableNumbersList({ numbers, currency }: Props) {
                             </View>
                         ))}
                     </View>
+                </View>
+            )}
+
+            {hotDigit.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={[styles.sectionLabel, { color: '#F87171' }]}>
+                        {t('bet_unavailable.hot_digit', 'First digit closed') as string}
+                    </Text>
+                    <View style={styles.chips}>
+                        {hotDigit.map((entry) => (
+                            <View key={entry.number} style={[styles.chip, styles.closedChip]}>
+                                <Text style={[styles.chipNumber, { color: '#FECACA' }]}>{entry.number}</Text>
+                            </View>
+                        ))}
+                    </View>
+                    <Text style={styles.hint}>
+                        {t(
+                            'bet_unavailable.hot_digit_hint',
+                            'Direct bets on this first digit are closed. Doubles and R pairs are still allowed.',
+                        ) as string}
+                    </Text>
+                </View>
+            )}
+
+            {unpairedReverse.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={[styles.sectionLabel, { color: '#FBBF24' }]}>
+                        {t('bet_unavailable.reverse_unpaired', 'R needs both numbers') as string}
+                    </Text>
+                    <View style={styles.chips}>
+                        {unpairedReverse.map((entry) => (
+                            <View key={entry.number} style={[styles.chip, styles.limitChip]}>
+                                <Text style={[styles.chipNumber, { color: '#FDE68A' }]}>{entry.number}</Text>
+                            </View>
+                        ))}
+                    </View>
+                    <Text style={styles.hint}>
+                        {t(
+                            'bet_unavailable.reverse_unpaired_hint',
+                            'An R bet on a closed first digit needs its reverse on the same slip for the same amount.',
+                        ) as string}
+                    </Text>
                 </View>
             )}
 
@@ -69,4 +115,5 @@ const styles = StyleSheet.create({
     limitChip: { borderColor: 'rgba(245, 158, 11, 0.4)', backgroundColor: 'rgba(245, 158, 11, 0.12)' },
     chipNumber: { fontSize: 15, fontWeight: 'bold', fontVariant: ['tabular-nums'] },
     chipDetail: { color: '#FBBF24', fontSize: 12, fontWeight: '500' },
+    hint: { color: '#9CA3AF', fontSize: 12, marginTop: 6, lineHeight: 17 },
 });

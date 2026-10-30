@@ -461,6 +461,13 @@ bank_setup: {
 explore: {
     eyebrow: "Play",
     title: "Bet Hub"
+},
+ota: {
+    title: "Update ready",
+    desc: "A new version of the app has been downloaded. Restart now to use it.",
+    restart_btn: "Restart",
+    later_btn: "Later",
+    forcing: "Updating the app…"
 }
 }
 

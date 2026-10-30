@@ -8,7 +8,11 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "node --test utils/*.test.mjs",
+    "update:preview": "eas update --channel preview",
+    "update:prod": "eas update:republish --destination-channel production",
+    "update:critical": "node scripts/publish-critical.mjs"
   },
   "dependencies": {
     "@expo/html-elements": "^0.10.1",

@@ -17,9 +17,11 @@ import SessionExpiryWatcher from '@/components/SessionExpiryWatcher';
 import ToastBridge from '@/components/ToastBridge';
 import { queryClient } from '@/lib/queryClient';
 import MaintenanceScreen from '@/src/components/MaintenanceScreen';
+import { ForcedUpdateOverlay, OtaUpdateModal } from '@/src/components/OtaUpdateModal';
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 
+import { useOtaUpdates } from '@/hooks/useOtaUpdates';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAuthStore } from '@/store/useAuthStore';
 import { registerDeviceToken } from '@/utils/registerDeviceToken';
@@ -54,6 +56,8 @@ function RootNavigator() {
 
   const { pushToken } = usePushNotifications();
 
+  const ota = useOtaUpdates();
+
   // Throttled to once a day, and a no-op until the user is signed in.
   useEffect(() => {
     if (pushToken) {
@@ -87,7 +91,9 @@ function RootNavigator() {
     }
   }, [isApiDone]);
 
-  const isShowSplash = !isApiDone || !isAnimDone;
+  // Held for the OTA check too, so a critical update is applied before any
+  // screen renders. The hook caps that wait at a few seconds.
+  const isShowSplash = !isApiDone || !isAnimDone || !ota.bootDone;
 
   const isMaintenance = maintenanceData?.is_enabled;
   const maintenanceMessage = maintenanceData?.message || 'စနစ်ပြုပြင်မွမ်းမံနေပါသည်။';
@@ -131,6 +137,9 @@ function RootNavigator() {
             </Stack.Protected>
           </Stack>
         )}
+
+        <OtaUpdateModal visible={!isShowSplash && ota.promptVisible} onRestart={ota.restart} onLater={ota.dismiss} />
+        <ForcedUpdateOverlay visible={ota.forcing} />
 
         <StatusBar style={isShowSplash ? "light" : "auto"} />
       </ThemeProvider>

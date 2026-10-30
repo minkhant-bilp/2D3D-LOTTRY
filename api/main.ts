@@ -78,6 +78,9 @@ export const downloadPopupAdImageAPI = (id: string | number) =>
 export const getMaintenanceSettingsAPI = () => 
     axiosClient.get('/app-settings/maintenance').then(res => res.data);
 
+export const getAppUpdateSettingsAPI = () => 
+    axiosClient.get('/app-settings/app-update').then(res => res.data);
+
 export const createFcmTokenAPI = (payload: { token: string; device_type: string; device_name?: string }) => 
     axiosClient.post('/fcm/token', payload).then(res => res.data);
 

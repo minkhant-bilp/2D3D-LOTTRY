@@ -14,6 +14,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { UnavailableNumbersList } from '../../components/bets/UnavailableNumbersList';
 import { useBetStore } from '../../store/useBetStore';
 import { isUnavailableRow, readUnavailableNumbers, type UnavailableNumber } from '../../utils/unavailableNumbers';
+import { isValidAmount, mergeBetRows } from '../../utils/betSlip';
+import { usePayoutOdd } from '../../hooks/usePayoutOdd';
 
 function getTutNumbers3D(core: string) {
     if (core.length !== 3) return [];
@@ -103,7 +105,8 @@ export default function ThreeDDetailScreen() {
     const getValidAmountTotal = useBetStore(state => state.getValidAmountTotal);
     const addMultipleBets = useBetStore(state => state.addMultipleBets);
 
-    const validBetCount = betRows.filter((r: any) => r.number.length === 3 && Number(r.amount) >= 1).length;
+    const validBetCount = betRows.filter((r: any) => r.number.length === 3 && isValidAmount(r.amount)).length;
+    const payoutOdd = usePayoutOdd('3D');
 
     useEffect(() => {
         useBetStore.setState({ isTwoDType: false, step: 2 });
@@ -221,7 +224,7 @@ export default function ThreeDDetailScreen() {
         return finalGroups.map(g => {
             const amounts = new Set(g.rows.map((r: any) => r.amount || ''));
             const validCount = g.rows.filter((r: any) => r.number !== '').length;
-            const subtotal = g.rows.reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0);
+            const subtotal = g.rows.reduce((sum: number, r: any) => sum + (isValidAmount(r.amount) ? Number(r.amount) : 0), 0);
             return { ...g, groupAmount: (amounts.size === 1 ? [...amounts][0] : '') || '', validCount, subtotal };
         });
     })();
@@ -323,7 +326,7 @@ export default function ThreeDDetailScreen() {
     const removeUnavailableNumbers = (unavailable: UnavailableNumber[]) => {
         const dropIds = betRows.filter((r: any) => isUnavailableRow(r.number, unavailable, '3D')).map((r: any) => r.id);
         const dropped = new Set(dropIds);
-        const hasBettableRow = betRows.some((r: any) => !dropped.has(r.id) && r.number.length === 3 && Number(r.amount) >= 1);
+        const hasBettableRow = betRows.some((r: any) => !dropped.has(r.id) && r.number.length === 3 && isValidAmount(r.amount));
 
         removeBetRows(dropIds);
         setCustomAlert(prev => ({ ...prev, visible: false, unavailable: undefined }));
@@ -335,14 +338,8 @@ export default function ThreeDDetailScreen() {
         if (isInsufficient) return showAlert('error', t('threed_detail.alert_error', 'အမှား') as string, t('threed_detail.alert_insufficient', 'လက်ကျန်ငွေ မလုံလောက်ပါ။') as string);
         if (validBetCount === 0) return showAlert('error', t('threed_detail.alert_error', 'အမှား') as string, t('threed_detail.alert_min_one_num', 'ဂဏန်း အနည်းဆုံး ၁ ခု ထည့်ပါ။') as string);
 
-        const cleanRows = betRows.filter((r: any) => r.number.length === 3 && Number(r.amount) >= 1);
-        const mergedMap: Record<string, number> = {};
-        cleanRows.forEach((r: any) => {
-            const num = r.number;
-            const amt = parseInt(r.amount) || 0;
-            mergedMap[num] = (mergedMap[num] || 0) + amt;
-        });
-        const mergedBetNumbers = Object.entries(mergedMap).map(([number, amount]) => ({ number, amount }));
+        // 3D has no R legs, so the payload stays { number, amount }.
+        const mergedBetNumbers = mergeBetRows(betRows, 3).map(({ number, amount }) => ({ number, amount }));
 
         mutation.mutate({
             bet_type: '3D',
@@ -489,7 +486,7 @@ export default function ThreeDDetailScreen() {
                                             <View style={styles.manualRowHeader}>
                                                 <View>
                                                     <Text style={styles.potentialWinLabel}>{t('threed_detail.potential_win', 'POTENTIAL WIN') as string}</Text>
-                                                    <Text style={styles.potentialWinValue}>{row.amount ? `x ${(Number(row.amount) * 500).toLocaleString()}` : '—'}</Text>
+                                                    <Text style={styles.potentialWinValue}>{payoutOdd !== null && isValidAmount(row.amount) ? `x ${(Number(row.amount) * payoutOdd).toLocaleString()}` : '—'}</Text>
                                                 </View>
                                                 <Pressable style={styles.closeBtnOuter} onPress={() => removeBetRow(row.id)}>
                                                     <View style={styles.closeBtnInner}><MaterialIcons name="close" size={16} color="#9CA3AF" /></View>

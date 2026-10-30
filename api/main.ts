@@ -78,6 +78,9 @@ export const downloadPopupAdImageAPI = (id: string | number) =>
 export const getMaintenanceSettingsAPI = () => 
     axiosClient.get('/app-settings/maintenance').then(res => res.data);
 
+export const getOddSettingsAPI = () => 
+    axiosClient.get('/odd-settings').then(res => res.data);
+
 export const getAppUpdateSettingsAPI = () => 
     axiosClient.get('/app-settings/app-update').then(res => res.data);
 

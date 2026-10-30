@@ -1,5 +1,3 @@
-import { SessionProvider } from '@/provider/ctx';
-import { SplashScreenController } from '@/provider/splash';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -35,10 +33,7 @@ export const unstable_settings = {
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <SessionProvider>
-        <SplashScreenController />
-        <RootNavigator />
-      </SessionProvider>
+      <RootNavigator />
     </QueryClientProvider>
   );
 }

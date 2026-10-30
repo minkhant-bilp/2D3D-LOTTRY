@@ -21,7 +21,8 @@ export const useAppStore = create<AppState>((set) => ({
             const response = await getMyWallet();
             set({ wallet: response.data?.wallet || null, walletLoading: false });
         } catch (error: any) {
-            set({ wallet: null, walletLoading: false });
+            // Keep the last known wallet: a blip must not read as a zero balance. Logout clears it.
+            set({ walletLoading: false });
         }
     },
 

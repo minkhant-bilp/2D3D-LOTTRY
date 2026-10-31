@@ -38,6 +38,23 @@ minimum in the dashboard.
 
 ## Native release
 
-`eas build -p android --profile production-apk` (or `production` for an AAB).
 Builds carry a new fingerprint, so OTA updates published before them never
 reach them, and vice versa.
+
+Players download the APK from one fixed URL on our VPS:
+**https://api.zarmani108.uk/downloads/ZARMANI108.apk** (the web app's "Get App"
+button points there). Always ship a `production-apk` build: a `preview` build
+listens to the preview update channel and never gets production OTA updates.
+
+1. `eas build -p android --profile production-apk`, and save the `.apk` in the
+   workspace root as `Zarmani108.apk`.
+2. From the workspace root, upload under a temporary name, then rename, so
+   nobody downloads a half-written file:
+
+   ```bash
+   DIR=/opt/apps/backend/public/downloads
+   scp -P 2222 Zarmani108.apk admin@162.0.239.182:$DIR/.ZARMANI108.apk.part
+   ssh -p 2222 admin@162.0.239.182 "mv $DIR/.ZARMANI108.apk.part $DIR/ZARMANI108.apk"
+   ```
+3. Check: `curl -sI https://api.zarmani108.uk/downloads/ZARMANI108.apk` must
+   answer `200` with `Content-Type: application/vnd.android.package-archive`.

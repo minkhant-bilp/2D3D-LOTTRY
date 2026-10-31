@@ -27,6 +27,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { UnavailableNumbersList } from '../../components/bets/UnavailableNumbersList';
 import { useBetStore } from '../../store/useBetStore';
 import { isUnavailableRow, readUnavailableNumbers, type UnavailableNumber } from '../../utils/unavailableNumbers';
+import { isValidAmount, mergeBetRows } from '../../utils/betSlip';
+import { usePayoutOdd } from '../../hooks/usePayoutOdd';
 
 const NAKKHAT_NUMS = ['07', '70', '18', '81', '24', '42', '35', '53', '69', '96'];
 const POWER_NUMS = ['05', '50', '16', '61', '27', '72', '38', '83', '49', '94'];
@@ -240,7 +242,8 @@ export default function TwoDDetailScreen() {
     const updateBetRowFields = useBetStore(state => state.updateBetRowFields);
     const removeBetRows = useBetStore(state => state.removeBetRows);
 
-    const validBetCount = betRows.filter((r: any) => r.number.length === 2 && Number(r.amount) >= 1).length;
+    const validBetCount = betRows.filter((r: any) => r.number.length === 2 && isValidAmount(r.amount)).length;
+    const payoutOdd = usePayoutOdd('2D');
     const validTotal = getValidAmountTotal();
 
     const isInsufficient = validTotal > realWalletBalance;
@@ -559,7 +562,7 @@ export default function TwoDDetailScreen() {
             .filter((r: any) => isUnavailableRow(r.number, unavailable, '2D') || (r.isReverse === true && orphanedMirrors.has(r.number)))
             .map((r: any) => r.id);
         const dropped = new Set(dropIds);
-        const hasBettableRow = betRows.some((r: any) => !dropped.has(r.id) && r.number.length === 2 && Number(r.amount) >= 1);
+        const hasBettableRow = betRows.some((r: any) => !dropped.has(r.id) && r.number.length === 2 && isValidAmount(r.amount));
 
         removeBetRows(dropIds);
         setCustomAlert(prev => ({ ...prev, visible: false, unavailable: undefined }));
@@ -570,23 +573,8 @@ export default function TwoDDetailScreen() {
         if (isInsufficient) return showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, t('twod_detail.alert_insufficient', 'လက်ကျန်ငွေ မလုံလောက်ပါ။') as string);
         if (validBetCount === 0) return showAlert('error', t('twod_detail.alert_error', 'အမှား') as string, t('twod_detail.alert_min_one_num', 'ဂဏန်း အနည်းဆုံး ၁ ခု ထည့်ပါ။') as string);
 
-        const cleanRows = betRows.filter((r: any) => r.number.length === 2 && Number(r.amount) >= 1);
-
-        // Keyed on number AND origin: merging on the number alone erased the R
-        // flag and folded a reverse leg into a direct one, which the backend then
-        // refused on a closed first digit. The API accepts the same number twice.
-        const mergedMap: Record<string, { number: string; amount: number; origin: 'direct' | 'reverse' }> = {};
-        cleanRows.forEach((r: any) => {
-            const origin: 'direct' | 'reverse' = r.isReverse === true ? 'reverse' : 'direct';
-            const key = `${r.number}|${origin}`;
-            const amt = parseInt(r.amount) || 0;
-            if (mergedMap[key]) {
-                mergedMap[key].amount += amt;
-                return;
-            }
-            mergedMap[key] = { number: r.number, amount: amt, origin };
-        });
-        const mergedBetNumbers = Object.values(mergedMap);
+        // The API accepts the same number twice, once per origin.
+        const mergedBetNumbers = mergeBetRows(betRows, 2);
 
         mutation.mutate({
             bet_type: '2D',
@@ -796,7 +784,7 @@ export default function TwoDDetailScreen() {
                                         <View>
                                             <Text style={styles.potentialWinLabel}>{t('twod_detail.potential_win', 'POTENTIAL WIN') as string}</Text>
                                             <Text style={styles.potentialWinValue}>
-                                                {row.amount && row.number.length === 2 ? `x ${(Number(row.amount) * 80).toLocaleString()}` : '—'}
+                                                {payoutOdd !== null && isValidAmount(row.amount) && row.number.length === 2 ? `x ${(Number(row.amount) * payoutOdd).toLocaleString()}` : '—'}
                                             </Text>
                                         </View>
                                         <Pressable style={styles.closeBtnOuter} onPress={() => removeBetRow(row.id)}>
@@ -1003,8 +991,8 @@ export default function TwoDDetailScreen() {
                             <View style={styles.editWinRow}>
                                 <Text style={styles.potentialWinLabel}>{t('twod_detail.potential_win', 'POTENTIAL WIN') as string}</Text>
                                 <Text style={styles.potentialWinValue}>
-                                    {editNum.length === 2 && /^\d+$/.test(editAmt.trim()) && Number(editAmt) >= 1
-                                        ? `x ${(Number(editAmt) * 80).toLocaleString()}`
+                                    {payoutOdd !== null && editNum.length === 2 && isValidAmount(editAmt)
+                                        ? `x ${(Number(editAmt) * payoutOdd).toLocaleString()}`
                                         : '—'}
                                 </Text>
                             </View>

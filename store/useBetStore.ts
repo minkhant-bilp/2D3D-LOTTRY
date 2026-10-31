@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { isValidAmount } from '@/utils/betSlip';
+
 /**
  * `isReverse` marks BOTH legs of an R pick. It only leaves the app as the bet
  * payload's `origin` field, where the backend uses it to let an R bet through a
@@ -78,13 +80,7 @@ export const useBetStore = create<BetState>((set, get) => ({
 
     getValidAmountTotal: () => {
         const rows = get().betRows;
-        return rows.reduce((total, row) => {
-            const amt = Number(row.amount);
-            if (/^\d+$/.test(row.amount.trim()) && Number.isInteger(amt) && amt >= 1) {
-                return total + amt;
-            }
-            return total;
-        }, 0);
+        return rows.reduce((total, row) => isValidAmount(row.amount) ? total + Number(row.amount) : total, 0);
     },
     
     addMultipleBets: (newBets) => set((state) => {
